@@ -56,7 +56,7 @@ const capitalizeWords = (str) => {
 };
 
 // Remove sensitive data from object
-const sanitizeObject = (obj, fieldsToRemove = ['password', 'token', 'resetPasswordToken', 'resetPasswordExpires']) => {
+const sanitizeObject = (obj, fieldsToRemove = ['password']) => {
     const sanitized = { ...obj };
     fieldsToRemove.forEach(field => {
         delete sanitized[field];

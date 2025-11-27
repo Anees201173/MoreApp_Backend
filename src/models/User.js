@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, STRING } = require('sequelize');
 const { sequelize } = require('../config/db');
 const bcrypt = require('bcryptjs');
 
@@ -16,7 +16,7 @@ const User = sequelize.define('users', {
       len: { args: [2, 50], msg: 'First name must be between 2 and 50 characters' }
     }
   },
-  user_name: {
+  username: {
     type: DataTypes.STRING(50),
     allowNull: false,
     validate: {
@@ -78,7 +78,7 @@ const User = sequelize.define('users', {
   },
 
   role: {
-    type: DataTypes.ENUM('admin', 'customer', 'member','user'),
+    type: DataTypes.ENUM('superadmin', 'companyadmin', 'marchent', 'user'),
     defaultValue: 'user',
     allowNull: false
   },
@@ -88,23 +88,24 @@ const User = sequelize.define('users', {
     defaultValue: true,
     allowNull: false
   },
-
   email_verified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     allowNull: false
   },
 
-  resetPasswordToken: {
-    type: DataTypes.STRING,
+  otp: {
+    type: DataTypes.STRING(50),
     allowNull: true
   },
-
-  resetPasswordExpires: {
+  otpExpires: {
     type: DataTypes.DATE,
     allowNull: true
   },
-
+  otpType: {
+    type: DataTypes.ENUM('register', 'login', 'rest'),
+    allowNull: true
+  },
   last_login: {
     type: DataTypes.DATE,
     allowNull: true
@@ -133,9 +134,9 @@ User.prototype.validatePassword = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-User.prototype.getFullName = function () {
-  return `${this.first_name} ${this.last_name}`;
-};
+// User.prototype.getFullName = function () {
+//   return `${this.first_name} ${this.last_name}`;
+// };
 
 User.prototype.toJSON = function () {
   const values = Object.assign({}, this.get());
@@ -150,6 +151,10 @@ User.findByEmail = function (email) {
 
 User.findActiveUsers = function () {
   return this.findAll({ where: { is_active: true } });
+};
+
+User.findByUserName = function (username) {
+  return this.findOne({ where: { username } })
 };
 
 module.exports = User;

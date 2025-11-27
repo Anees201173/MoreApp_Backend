@@ -12,7 +12,7 @@ module.exports = {
         type: Sequelize.STRING(50),
         allowNull: false
       },
-      user_name: {
+      username: {
         type: Sequelize.STRING(50),
         allowNull: false
       },
@@ -43,7 +43,7 @@ module.exports = {
         allowNull: true
       },
       role: {
-        type: Sequelize.ENUM('admin', 'customer', 'member','user'),
+        type: Sequelize.ENUM('superadmin', 'comapnyadmin', 'marchent', 'user'),
         allowNull: false,
         defaultValue: 'user'
       },
@@ -57,12 +57,16 @@ module.exports = {
         allowNull: false,
         defaultValue: false
       },
-      resetPasswordToken: {
-        type: Sequelize.STRING,
+      otp: {
+        type: Sequelize.STRING(50),
         allowNull: true
       },
-      resetPasswordExpires: {
+      otpExpires: {
         type: Sequelize.DATE,
+        allowNull: true
+      },
+      otpType: {
+        type: Sequelize.ENUM('register', 'login', 'reset'),
         allowNull: true
       },
       last_login: {

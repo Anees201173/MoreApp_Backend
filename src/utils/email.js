@@ -98,7 +98,7 @@ const sendWelcomeEmail = async (user) => {
     to: user.email,
     subject: "Welcome to Our Platform!",
     html: `
-      <h1>Welcome ${user.first_name}!</h1>
+      <h1>Welcome ${user.name}!</h1>
       <p>Thank you for joining our platform. We're excited to have you aboard!</p>
       <p>Your account has been successfully created with the email: ${user.email}</p>
       <p>If you have any questions, feel free to contact our support team.</p>
@@ -117,7 +117,7 @@ const sendPasswordResetEmail = async (user, otp) => {
     subject: "Your Password Reset OTP",
     html: `
       <h2>Password Reset Request</h2>
-      <p>Hi <strong>${user.first_name}</strong>,</p>
+      <p>Hi <strong>${user.name}</strong>,</p>
       <p>You have requested to reset your password for your account.</p>
       <p>Your One-Time Password (OTP) is:</p>
 
@@ -153,7 +153,7 @@ const sendEmailVerification = async (user, verificationToken) => {
     subject: "Please Verify Your Email",
     html: `
       <h1>Email Verification</h1>
-      <p>Hi ${user.first_name},</p>
+      <p>Hi ${user.name},</p>
       <p>Please click the link below to verify your email address:</p>
       <a href="${verificationUrl}" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
       <p>This link will expire in 24 hours.</p>

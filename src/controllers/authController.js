@@ -5,7 +5,7 @@ const config = require("../config/config");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
-const { generateOTP } = require("../utils/helpers");
+const { generateOTP, sanitizeObject } = require("../utils/helpers");
 const { sendPasswordResetEmail } = require("../utils/email");
 
 // Generate JWT token
@@ -15,16 +15,9 @@ const generateToken = (userId) => {
   });
 };
 
-const generateRefreshToken = (userId) => {
-  // default to 30d if no specific refresh expiry provided
-  const refreshExpire = process.env.JWT_REFRESH_EXPIRE || "30d";
-  return jwt.sign({ userId, type: "refresh" }, config.jwt.secret, {
-    expiresIn: refreshExpire,
-  });
-};
 
 // @desc    Register a new user
-// @route   POST /api/auth/register
+// @route   POST /api/v1/auth/register
 // @access  Public
 const register = asyncHandler(async (req, res) => {
   // Check for validation errors
@@ -33,43 +26,76 @@ const register = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors.array());
   }
 
-  const { first_name, last_name, email, password, phone, role, gender, country, city } = req.body;
+  const { name, username, email, password, phone, role, gender, country, city } = req.body;
 
-  // Check if user already exists
-  const existingUser = await User.findByEmail(email);
-  if (existingUser) {
+  // Check if email exists
+  let user = await User.findByEmail(email);
+
+  if (user) {
+    // If email exists but not verified, resend OTP
+    if (!user.email_verified) {
+      const otp = generateOTP(6).toUpperCase();
+      const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+      user.otp = otp;
+      user.otpType = "register";
+      user.otpExpires = otpExpires;
+      await user.save();
+
+      console.log(`Resent OTP for ${email}: ${otp}`);
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          { email: user.email },
+          `Registration OTP resent to ${email}. Verify to complete registration`
+        )
+      );
+    }
+
+    // If email exists and verified, reject
     throw new ApiError(400, "User already exists with this email");
   }
 
-  // Create user
-  const user = await User.create({
-    first_name,
-    last_name,
+  // Check if username already exists
+  const existingUserName = await User.findByUserName(username);
+  if (existingUserName) {
+    throw new ApiError(400, "Username taken, choose another username");
+  }
+
+  // Generate OTP for new user
+  const otp = generateOTP(6).toUpperCase();
+  const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  // Create new user (unverified)
+  user = await User.create({
+    name,
+    username,
     email,
     password,
     phone,
     role,
+    gender,
+    country,
+    city,
+    email_verified: false,
+    otp: otp,
+    otpType: "register",
+    otpExpires: otpExpires
   });
 
-  // Generate token
-  const token = generateToken(user.id);
-  const refreshToken = generateRefreshToken(user.id);
-  await user.update({ refreshToken });
-
+  console.log(`OTP for ${email}: ${otp}`);
   res.status(201).json(
     new ApiResponse(
       201,
-      {
-        user,
-        token,
-      },
-      "User registered successfully"
+      { email: user.email },
+      `Registration OTP sent to ${email}. Verify to complete registration`
     )
   );
 });
 
+
 // @desc    Login user
-// @route   POST /api/auth/login
+// @route   POST /api/v1/auth/login
 // @access  Public
 const login = asyncHandler(async (req, res) => {
   // Check for validation errors
@@ -100,6 +126,15 @@ const login = asyncHandler(async (req, res) => {
   // Update last login
   await user.update({ last_login: new Date() });
 
+  // Sanitize user object before sending
+  const sanitizedUser = sanitizeObject(user.toJSON(), [
+    'password',
+    'otp',
+    'otpExpires',
+    'otpType',
+    'refreshToken' // optional, if you store it in DB
+  ]);
+
   // Generate token
   const token = generateToken(user.id);
   // const refreshToken = generateRefreshToken(user.id);
@@ -109,7 +144,7 @@ const login = asyncHandler(async (req, res) => {
     new ApiResponse(
       200,
       {
-        user,
+        sanitizedUser,
         token,
         // refreshToken
       },
@@ -119,22 +154,31 @@ const login = asyncHandler(async (req, res) => {
 });
 
 // @desc    Get current user profile
-// @route   GET /api/auth/profile
+// @route   GET /api/auth/me
 // @access  Private
 const getProfile = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.user.id);
 
+  // Sanitize user object before sending
+  const sanitizedUser = sanitizeObject(user.toJSON(), [
+    'password',
+    'otp',
+    'otpExpires',
+    'otpType',
+    'refreshToken' // optional, if you store it in DB
+  ]);
+ 
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
   res
     .status(200)
-    .json(new ApiResponse(200, { user }, "Profile retrieved successfully"));
+    .json(new ApiResponse(200, { sanitizedUser }, "Profile retrieved successfully"));
 });
 
 // @desc    Update user profile
-// @route   PUT /api/auth/profile
+// @route   PUT /api/v1/auth/update
 // @access  Private
 const updateProfile = asyncHandler(async (req, res) => {
   // Check for validation errors
@@ -205,19 +249,20 @@ const forgetPassword = asyncHandler(async (req, res) => {
 
   const { email } = req.body;
   const user = await User.findByEmail(email);
+  // check if user exists 
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  const resetToken = generateOTP(4).toUpperCase();
-  const resetTokenExpires = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+  const otp = generateOTP(4).toUpperCase();
+  const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes from now
 
-  user.resetPasswordToken = resetToken;
-  user.resetPasswordExpires = new Date(resetTokenExpires);
+  user.opt = otp;
+  user.otpExpires = new Date(otpExpires);
   await user.save();
 
-  await sendPasswordResetEmail(user, resetToken);
-  console.log("here is reset token", resetToken);
+  await sendPasswordResetEmail(user, otp);
+  console.log("here is otp", opt);
 
   res.status(200).json(new ApiResponse(200, null, "Password reset email sent"));
 });
@@ -229,27 +274,42 @@ const verifyOtp = asyncHandler(async (req, res) => {
   }
 
   const { email, otp } = req.body;
+
+  // check if email exists 
   const user = await User.findByEmail(email);
-  if (!user || !user.resetPasswordToken || !user.resetPasswordExpires) {
-    throw new ApiError(400, "Invalid or expired reset token");
+  if (!user || !user.otp || !user.otpExpires) {
+    throw new ApiError(400, "Invalid or expired Otp");
   }
+  // Otp validations 
   if (
-    user.resetPasswordToken.toUpperCase() !== otp.toUpperCase() ||
-    user.resetPasswordExpires < Date.now()
+    user.otp.toUpperCase() !== otp.toUpperCase() ||
+    user.otpExpires < Date.now()
   ) {
     throw new ApiError(400, "Invalid or expired reset token");
   }
 
-  // Update password and clear reset token
-  const resetToken = jwt.sign(
-    { userId: user.id, email: user.email },
-    config.jwt.secret,
-    { expiresIn: "10m" }
-  );
 
-  user.resetPasswordToken = null;
-  user.resetPasswordExpires = null;
+
+  // If OTP is for registration, mark email as verified
+  if (user.otpType === "register") {
+    user.email_verified = true;
+  }
+
+  // clear opt fields 
+  user.otp = null;
+  user.otpExpires = null;
+  user.otpType = null
   await user.save();
+
+  // Generate token (for password reset OTP only)
+  let resetToken = null;
+  if (user.otpType === "reset") {
+    resetToken = jwt.sign(
+      { userId: user.id, email: user.email },
+      config.jwt.secret,
+      { expiresIn: "10m" }
+    );
+  }
 
   res
     .status(200)
