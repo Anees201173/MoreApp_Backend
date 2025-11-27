@@ -103,7 +103,7 @@ const User = sequelize.define('users', {
     allowNull: true
   },
   otpType: {
-    type: DataTypes.ENUM('register', 'login', 'rest'),
+    type: DataTypes.ENUM('register', 'login', 'reset'),
     allowNull: true
   },
   last_login: {

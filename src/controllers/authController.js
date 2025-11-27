@@ -7,6 +7,7 @@ const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
 const { generateOTP, sanitizeObject } = require("../utils/helpers");
 const { sendPasswordResetEmail } = require("../utils/email");
+const { json } = require("sequelize");
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -167,7 +168,7 @@ const getProfile = asyncHandler(async (req, res) => {
     'otpType',
     'refreshToken' // optional, if you store it in DB
   ]);
- 
+
   if (!user) {
     throw new ApiError(404, "User not found");
   }
@@ -187,7 +188,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors.array());
   }
 
-  const { first_name, last_name, phone } = req.body;
+  const { name, username, phone } = req.body;
 
   const user = await User.findByPk(req.user.id);
   if (!user) {
@@ -196,8 +197,8 @@ const updateProfile = asyncHandler(async (req, res) => {
 
   // Update user
   await user.update({
-    first_name: first_name || user.first_name,
-    last_name: last_name || user.last_name,
+    name: name || user.name,
+    username: username || user.username,
     phone: phone || user.phone,
   });
 
@@ -207,7 +208,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 });
 
 // @desc    Change password
-// @route   PUT /api/auth/change-password
+// @route   PUT /api/v1/auth/change-password
 // @access  Private
 const changePassword = asyncHandler(async (req, res) => {
   // Check for validation errors
@@ -216,7 +217,7 @@ const changePassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors.array());
   }
 
-  const { current_password, new_password } = req.body;
+  const { current_password, new_password, confirm_password } = req.body;
 
   const user = await User.findByPk(req.user.id);
   if (!user) {
@@ -227,6 +228,11 @@ const changePassword = asyncHandler(async (req, res) => {
   const isValidPassword = await user.validatePassword(current_password);
   if (!isValidPassword) {
     throw new ApiError(400, "Current password is incorrect");
+  }
+
+  // check confirm Password 
+  if (!new_password === confirm_password) {
+    throw new ApiError(400, "password and confirm password must be same")
   }
 
   // Update password
@@ -257,12 +263,13 @@ const forgetPassword = asyncHandler(async (req, res) => {
   const otp = generateOTP(4).toUpperCase();
   const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes from now
 
-  user.opt = otp;
+  user.otp = otp;
+  user.otpType = 'reset'
   user.otpExpires = new Date(otpExpires);
   await user.save();
 
   await sendPasswordResetEmail(user, otp);
-  console.log("here is otp", opt);
+  console.log("here is otp", otp);
 
   res.status(200).json(new ApiResponse(200, null, "Password reset email sent"));
 });
@@ -272,7 +279,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
   if (!errors.isEmpty()) {
     throw new ApiError(400, "Validation failed", errors.array());
   }
-
+  // const { userId } = req.user.id
   const { email, otp } = req.body;
 
   // check if email exists 
@@ -295,21 +302,24 @@ const verifyOtp = asyncHandler(async (req, res) => {
     user.email_verified = true;
   }
 
+  // Generate token (for password reset OTP only)
+  let resetToken = null;
+  if (user.otpType === "reset") {
+    resetToken = jwt.sign(
+      { userId: user.id, email: user.email, type: "password-reset" },
+      config.jwt.secret,
+      { expiresIn: "10m" }
+    );
+  }
+
+
   // clear opt fields 
   user.otp = null;
   user.otpExpires = null;
   user.otpType = null
   await user.save();
 
-  // Generate token (for password reset OTP only)
-  let resetToken = null;
-  if (user.otpType === "reset") {
-    resetToken = jwt.sign(
-      { userId: user.id, email: user.email },
-      config.jwt.secret,
-      { expiresIn: "10m" }
-    );
-  }
+
 
   res
     .status(200)
@@ -339,6 +349,10 @@ const resetPassword = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Reset token has expired");
     }
     throw new ApiError(400, "Invalid reset token");
+  }
+
+  if (decoded.type !== "password-reset") {
+    throw new ApiError(400, "Invalid reset token")
   }
 
   const { new_password, confirm_password } = req.body;

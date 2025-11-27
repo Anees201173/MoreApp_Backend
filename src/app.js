@@ -12,7 +12,8 @@ const errorHandler = require("./middleware/errorHandler");
 const notFoundHandler = require("./middleware/notFoundHandler");
 
 // Import routes
-const authRoutes = require('./routes/authRoutes')
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes')
 
 const app = express();
 
@@ -58,12 +59,14 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/user', userRoutes)
 
 // 404 handler
 app.use(notFoundHandler);
 
 // Global error handler
 app.use(errorHandler);
+
 
 // Database connection and server start
 const startServer = async () => {

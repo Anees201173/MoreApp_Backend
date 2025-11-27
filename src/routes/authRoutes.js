@@ -72,12 +72,12 @@ const loginValidation = [
 ];
 
 const updateProfileValidation = [
-    body('first_name')
+    body('name')
         .optional()
         .trim()
         .isLength({ min: 2, max: 50 })
         .withMessage('First name must be between 2 and 50 characters'),
-    body('last_name')
+    body('username')
         .optional()
         .trim()
         .isLength({ min: 2, max: 50 })
@@ -92,9 +92,20 @@ const changePasswordValidation = [
     body('current_password')
         .notEmpty()
         .withMessage('Current password is required'),
+
     body('new_password')
         .isLength({ min: 6 })
-        .withMessage('New password must be at least 6 characters long')
+        .withMessage('New password must be at least 6 characters long'),
+
+    body('confirm_password')
+        .notEmpty()
+        .withMessage('Confirm password is required')
+        .custom((value, { req }) => {
+            if (value !== req.body.new_password) {
+                throw new Error('Confirm password does not match new password');
+            }
+            return true;
+        })
 ];
 
 const forgetPasswordValidation = [
@@ -122,9 +133,9 @@ router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 router.get('/me', auth, getProfile);
 router.put('/update', auth, updateProfileValidation, updateProfile);
-router.put('/change-password', auth, changePasswordValidation, changePassword);
+router.patch('/change-password', auth, changePasswordValidation, changePassword);
 router.post('/forget-password', forgetPasswordValidation, forgetPassword);
 router.post('/verify-otp', verifyOtpValidation, verifyOtp);
-router.put('/reset-password', auth, resetPasswordValidation, resetPassword);
+router.patch('/reset-password', auth, resetPasswordValidation, resetPassword);
 
 module.exports = router;

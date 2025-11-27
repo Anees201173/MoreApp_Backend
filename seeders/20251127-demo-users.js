@@ -19,8 +19,8 @@ module.exports = {
         role: 'user',
         is_active: true,
         email_verified: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        created_at: new Date(),
+        updated_at: new Date()
       }
     ]);
   },
