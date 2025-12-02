@@ -14,6 +14,7 @@ const notFoundHandler = require("./middleware/notFoundHandler");
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes')
+const comapnyRoutes = require('./routes/comapny.routes')
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.get("/health", (req, res) => {
 // API routes
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
+app.use('/api/v1/company', comapnyRoutes)
 
 // 404 handler
 app.use(notFoundHandler);

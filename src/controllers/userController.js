@@ -19,8 +19,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
   if (search) {
     whereClause[Op.or] = [
-      { first_name: { [Op.like]: `%${search}%` } },
-      { last_name: { [Op.like]: `%${search}%` } },
+      { name: { [Op.like]: `%${search}%` } },
+      { username: { [Op.like]: `%${search}%` } },
       { email: { [Op.like]: `%${search}%` } }
     ];
   }

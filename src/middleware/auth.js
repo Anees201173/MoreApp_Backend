@@ -20,7 +20,7 @@ const auth = asyncHandler(async (req, res, next) => {
   try {
     // Verify token
     const decoded = jwt.verify(token, config.jwt.secret);
-    // console.log("decoded", decoded)
+    console.log("decoded", decoded)
 
     // Get user from token
     const user = await User.findByPk(decoded.id, {

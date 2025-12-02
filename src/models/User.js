@@ -1,6 +1,7 @@
 const { DataTypes, STRING } = require('sequelize');
 const { sequelize } = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { types } = require('pg');
 
 const User = sequelize.define('users', {
   id: {
@@ -12,7 +13,7 @@ const User = sequelize.define('users', {
     type: DataTypes.STRING(50),
     allowNull: false,
     validate: {
-      notEmpty: { msg: 'First name is required' },
+      notEmpty: { msg: 'name is required' },
       len: { args: [2, 50], msg: 'First name must be between 2 and 50 characters' }
     }
   },
@@ -21,7 +22,7 @@ const User = sequelize.define('users', {
     allowNull: false,
     validate: {
       notEmpty: { msg: 'Last name is required' },
-      len: { args: [2, 50], msg: 'Last name must be between 2 and 50 characters' }
+      len: { args: [2, 50], msg: 'username must be between 2 and 50 characters' }
     }
   },
   email: {
@@ -78,9 +79,19 @@ const User = sequelize.define('users', {
   },
 
   role: {
-    type: DataTypes.ENUM('superadmin', 'companyadmin', 'marchent', 'user'),
+    type: DataTypes.ENUM('superadmin', 'companyadmin', 'marchent', 'user'),  // --company_employee--
     defaultValue: 'user',
     allowNull: false
+  },
+  company_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'companies',
+      key: 'id'
+    },
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
   },
 
   is_active: {
