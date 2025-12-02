@@ -20,16 +20,17 @@ const auth = asyncHandler(async (req, res, next) => {
   try {
     // Verify token
     const decoded = jwt.verify(token, config.jwt.secret);
+    // console.log("decoded", decoded)
 
     // Get user from token
-    const user = await User.findByPk(decoded.userId, {
+    const user = await User.findByPk(decoded.id, {
       attributes: { exclude: ['password'] }
     });
 
     if (!user) {
       throw new ApiError(401, 'No user found with this token');
     }
-
+    // console.log("user", user)
     // Check if user is active
     if (!user.is_active) {
       throw new ApiError(401, 'User account is deactivated');

@@ -10,8 +10,8 @@ const { sendPasswordResetEmail } = require("../utils/email");
 const { json } = require("sequelize");
 
 // Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, config.jwt.secret, {
+const generateToken = (userId, role) => {
+  return jwt.sign({ id: userId, role }, config.jwt.secret, {
     expiresIn: config.jwt.expire,
   });
 };
@@ -137,7 +137,7 @@ const login = asyncHandler(async (req, res) => {
   ]);
 
   // Generate token
-  const token = generateToken(user.id);
+  const token = generateToken(user.id, user.role);
   // const refreshToken = generateRefreshToken(user.id);
   // await user.update({ refreshToken });
 
@@ -274,56 +274,56 @@ const forgetPassword = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, null, "Password reset email sent"));
 });
 
+// @desc    verify otp
+// @route   PUT /api/auth/verify-otp
+// @access  public
 const verifyOtp = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     throw new ApiError(400, "Validation failed", errors.array());
   }
-  // const { userId } = req.user.id
+
   const { email, otp } = req.body;
 
-  // check if email exists 
+  // Check user exists and OTP stored
   const user = await User.findByEmail(email);
   if (!user || !user.otp || !user.otpExpires) {
-    throw new ApiError(400, "Invalid or expired Otp");
+    throw new ApiError(400, "Invalid or expired OTP");
   }
-  // Otp validations 
+
+  // Validate OTP and expiration
   if (
     user.otp.toUpperCase() !== otp.toUpperCase() ||
     user.otpExpires < Date.now()
   ) {
-    throw new ApiError(400, "Invalid or expired reset token");
+    throw new ApiError(400, "Invalid or expired OTP");
   }
 
+  let token = null;
 
-
-  // If OTP is for registration, mark email as verified
+  // Registration verification
   if (user.otpType === "register") {
     user.email_verified = true;
+    token = generateToken(user.id, user.role);
+  }
+  // Login OTP verification
+  else if (user.otpType === "login") {
+    token = generateToken(user.id, user.role);
+  }
+  // Reject anything else e.g. reset
+  else {
+    throw new ApiError(400, "OTP type not valid for login/register");
   }
 
-  // Generate token (for password reset OTP only)
-  let resetToken = null;
-  if (user.otpType === "reset") {
-    resetToken = jwt.sign(
-      { userId: user.id, email: user.email, type: "password-reset" },
-      config.jwt.secret,
-      { expiresIn: "10m" }
-    );
-  }
-
-
-  // clear opt fields 
+  // Clear OTP fields after success
   user.otp = null;
   user.otpExpires = null;
-  user.otpType = null
+  user.otpType = null;
   await user.save();
 
-
-
-  res
+  return res
     .status(200)
-    .json(new ApiResponse(200, { resetToken }, "OTP verified successfully"));
+    .json(new ApiResponse(200, { token }, "OTP verified successfully"));
 });
 
 // @desc    reset password
