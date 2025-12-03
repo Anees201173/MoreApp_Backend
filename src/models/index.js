@@ -23,24 +23,24 @@ const defineAssociations = () => {
   });
 
   // Company Employees (Company has many Users)
-  Company.hasMany(User, {
-    foreignKey: 'company_id',
-    as: 'employees'
-  });
+  // Company.hasMany(User, {
+  //   foreignKey: 'company_id',
+  //   as: 'employees'
+  // });
 
-  User.belongsTo(Company, {
-    foreignKey: 'company_id',
-    as: 'company'
-  });
+  // User.belongsTo(Company, {
+  //   foreignKey: 'company_id',
+  //   as: 'company'
+  // });
 
   // Merchant <-> User (1 to 1)
   User.hasOne(Marchant, {
     foreignKey: 'user_id',
-    as: 'merchant'
+    as: 'merchant_admin'
   });
 
   Marchant.belongsTo(User, {
-    foreignKey: 'user_id',
+    foreignKey: 'marchantadmin',
     as: 'user'
   });
 };

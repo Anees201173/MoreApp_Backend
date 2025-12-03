@@ -2,7 +2,7 @@ const ApiError = require('../utils/ApiError');
 
 const authorize = (...roles) => {
   return (req, res, next) => {
-     console.log("Authorize Middleware => req.user:", req.user);
+     //console.log("Authorize Middleware => req.user:", req.user);
     if (!req.user || !req.user.role) {
       return next(new ApiError(401, 'Not authorized to access this route'));
     }

@@ -30,7 +30,7 @@ const auth = asyncHandler(async (req, res, next) => {
     if (!user) {
       throw new ApiError(401, 'No user found with this token');
     }
-    console.log("user", user)
+   // console.log("user", user)
     // Check if user is active
     if (!user.is_active) {
       throw new ApiError(401, 'User account is deactivated');

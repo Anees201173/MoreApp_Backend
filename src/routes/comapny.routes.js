@@ -10,6 +10,7 @@ const { createCompany,
     deleteCompany,
     toggleCompanyStatus } = require('../controllers/comapny.controller')
 
+// ===================== Validators ===================== //
 
 // create company validators
 const createValidators = [
@@ -57,6 +58,7 @@ const updateValidators = [
         .isLength({ min: 5 }).withMessage('Address must be at least 5 characters long')
 ];
 
+// ===================== Routes ===================== //
 
 router.post('/', auth, authorize('superadmin'), createValidators, createCompany)
 router.get('/', auth, getAllCompanies)
