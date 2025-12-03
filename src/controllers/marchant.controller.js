@@ -60,7 +60,7 @@ const getAllMarchants = asyncHandler(async (req, res) => {
         limit,
         offset,
         order: [['id', 'DESC']],
-        include: [{ model: User, as: 'marchantadmin', attributes: ['id', 'name', 'email'] }],
+        include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }],
         attributes: { exclude: ['password'] }
     });
 

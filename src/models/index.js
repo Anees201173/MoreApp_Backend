@@ -36,11 +36,11 @@ const defineAssociations = () => {
   // Merchant <-> User (1 to 1)
   User.hasOne(Marchant, {
     foreignKey: 'user_id',
-    as: 'merchant_admin'
+    as: 'marchantadmin'
   });
 
   Marchant.belongsTo(User, {
-    foreignKey: 'marchantadmin',
+    foreignKey: 'user_id',
     as: 'user'
   });
 };
@@ -55,7 +55,8 @@ module.exports = {
   sequelize,
   Sequelize,
   User,
-  Company
+  Company,
+  Marchant,
 
   // Add other models here as you create them
 }
