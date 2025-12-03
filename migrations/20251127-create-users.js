@@ -42,11 +42,24 @@ module.exports = {
         type: Sequelize.STRING(100),
         allowNull: true
       },
+
       role: {
-        type: Sequelize.ENUM('superadmin', 'comapnyadmin', 'marchent', 'user'),
+        type: Sequelize.ENUM('superadmin', 'companyadmin', 'marchent', 'user'),
         allowNull: false,
         defaultValue: 'user'
       },
+
+      company_id: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'companies',
+          key: 'id'
+        },
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE'
+      },
+
       is_active: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
@@ -73,6 +86,7 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: true
       },
+
       created_at: {
         type: Sequelize.DATE,
         allowNull: false,

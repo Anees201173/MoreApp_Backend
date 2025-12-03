@@ -30,7 +30,7 @@ const auth = asyncHandler(async (req, res, next) => {
     if (!user) {
       throw new ApiError(401, 'No user found with this token');
     }
-    // console.log("user", user)
+    console.log("user", user)
     // Check if user is active
     if (!user.is_active) {
       throw new ApiError(401, 'User account is deactivated');
@@ -39,7 +39,12 @@ const auth = asyncHandler(async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    throw new ApiError(401, 'Not authorized to access this route');
+    if (error.name === 'TokenExpiredError') {
+      throw new ApiError(401, 'Token expired, please login again');
+    }
+
+    // 🔥 Let other authorization errors pass through
+    throw error;
   }
 });
 

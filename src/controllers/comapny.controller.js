@@ -14,10 +14,10 @@ const { sanitizeObject } = require('../utils/helpers');
 // @route   POST /api/v1/company
 // @access  Private (Admin)
 const createCompany = asyncHandler(async (req, res) => {
-    // const errors = validationResult(req);
-    // if (!errors.isEmpty()) {
-    //     throw new ApiError(400, 'Validation failed', errors.array());
-    // }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        throw new ApiError(400, 'Validation failed', errors.array());
+    }
 
     const { name, email, password, confirm_password, phone, address } = req.body;
 
@@ -89,7 +89,7 @@ const getCompanyById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const company = await Company.findByPk(id, {
-        include: [{ model: User, as: 'admin', attributes: ['id', 'name', 'email'] }],
+        include: [{ model: User, as: 'companyadmin', attributes: ['id', 'name', 'email'] }],
         attributes: { exclude: ['password'] }
     });
 

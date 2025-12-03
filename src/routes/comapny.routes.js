@@ -55,9 +55,9 @@ const updateValidators = [
 
 
 router.post('/', auth, authorize('superadmin'), createValidators, createCompany)
-router.get('/', auth, authorize('superadmin'), updateValidators, getAllCompanies)
-router.get('/:id', auth, authorize('superadmin', 'companyadmin', getCompanyById))
-router.put('/:id', auth, authorize('superadmin', 'companyadmin'), updateCompany)
+router.get('/', auth, getAllCompanies)
+router.get('/:id', auth, authorize('superadmin', 'companyadmin'), getCompanyById)
+router.put('/:id', auth, authorize('superadmin', 'companyadmin'), updateValidators, updateCompany)
 router.delete('/:id', auth, authorize("superadmin"), deleteCompany)
 router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleCompanyStatus)
 
