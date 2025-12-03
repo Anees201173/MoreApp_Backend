@@ -3,6 +3,7 @@ const { sequelize } = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { types } = require('pg');
 
+
 const User = sequelize.define('users', {
   id: {
     type: DataTypes.INTEGER,

@@ -44,14 +44,18 @@ const createValidators = [
 // update company validators 
 const updateValidators = [
     body('name')
-        .optional()
+        .optional({ checkFalsy: true })
         .trim()
-        .notEmpty().withMessage('Company name is required')
-        .isLength({ min: 2 }).withMessage('Company name must be at least 2 characters'),
+        .isLength({ min: 2 }).withMessage('Company name must be at least 2 characters')
+        .matches(/^[A-Za-z0-9\s&.-]+$/).withMessage('Company name contains invalid characters'),
     body('phone')
-        .optional()
-        .isMobilePhone().withMessage('Invalid phone number'),
-]
+        .optional({ checkFalsy: true })
+        .isMobilePhone().withMessage('Invalid phone number format'),
+    body('address')
+        .optional({ checkFalsy: true })
+        .trim()
+        .isLength({ min: 5 }).withMessage('Address must be at least 5 characters long')
+];
 
 
 router.post('/', auth, authorize('superadmin'), createValidators, createCompany)

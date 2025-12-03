@@ -114,7 +114,7 @@ const updateCompany = asyncHandler(async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, phone } = req.body;
+    const { name, phone, address } = req.body;
 
     const company = await Company.findByPk(id);
     if (!company) {
@@ -128,7 +128,8 @@ const updateCompany = asyncHandler(async (req, res) => {
 
     const updateData = {
         name: name || company.name,
-        phone: phone || company.phone
+        phone: phone || company.phone,
+        address: address || company.address
     };
 
     await company.update(updateData);
@@ -176,7 +177,7 @@ const toggleCompanyStatus = asyncHandler(async (req, res) => {
     res.status(200).json(
         new ApiResponse(
             200,
-            { company: sanitizedCompany },
+            { sanitizedCompany },
             `Company status set to ${company.is_active} successfully`
         )
     );

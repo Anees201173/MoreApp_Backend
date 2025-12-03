@@ -4,28 +4,47 @@ const { sequelize } = require('../config/db');
 // Import all models
 const User = require('./User')
 const Company = require('./Company')
+const Marchant = require('./Marchant')
 
 
 // Define model associations
 const defineAssociations = () => {
-  // Example associations (uncomment and modify as needed)
-  // User.hasMany(Post, { foreignKey: 'user_id', as: 'posts' });
-  // Post.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-
-  // One Company has One Admin (User)
-  Company.hasOne(User, {
-    foreignKey: 'company_id',
-    as: 'companyadmin',
-    onDelete: 'SET NULL',
+  // Company Admin (ONE User → ONE Company)
+  User.hasOne(Company, {
+    foreignKey: 'admin_id',
+    as: 'adminOfCompany',
+    onDelete: 'RESTRICT',
     onUpdate: 'CASCADE'
   });
 
-  // User belongs to Company
+  Company.belongsTo(User, {
+    foreignKey: 'admin_id',
+    as: 'admin'
+  });
+
+  // Company Employees (Company has many Users)
+  Company.hasMany(User, {
+    foreignKey: 'company_id',
+    as: 'employees'
+  });
+
   User.belongsTo(Company, {
     foreignKey: 'company_id',
     as: 'company'
   });
-}
+
+  // Merchant <-> User (1 to 1)
+  User.hasOne(Marchant, {
+    foreignKey: 'user_id',
+    as: 'merchant'
+  });
+
+  Marchant.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user'
+  });
+};
+
 
 
 // Initialize associations
