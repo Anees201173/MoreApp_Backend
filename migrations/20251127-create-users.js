@@ -49,16 +49,16 @@ module.exports = {
         defaultValue: 'user'
       },
 
-      company_id: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-        references: {
-          model: 'companies',
-          key: 'id'
-        },
-        onDelete: 'SET NULL',
-        onUpdate: 'CASCADE'
-      },
+      // company_id: {
+      //   type: Sequelize.INTEGER,
+      //   allowNull: true,
+      //   references: {
+      //     model: 'companies',
+      //     key: 'id'
+      //   },
+      //   onDelete: 'SET NULL',
+      //   onUpdate: 'CASCADE'
+      // },
 
       is_active: {
         type: Sequelize.BOOLEAN,
