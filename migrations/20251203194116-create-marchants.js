@@ -1,9 +1,8 @@
 'use strict';
 
-/** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('companies', {
+    await queryInterface.createTable('marchants', {
       id: {
         type: Sequelize.INTEGER,
         primaryKey: true,
@@ -13,15 +12,8 @@ module.exports = {
         type: Sequelize.STRING(50),
         allowNull: false
       },
-      admin_id: {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-        references: {
-          model: 'users',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'RESTRICT'
+      phone: {
+        type: Sequelize.STRING(20)
       },
       email: {
         type: Sequelize.STRING(100),
@@ -36,14 +28,18 @@ module.exports = {
         type: Sequelize.STRING(255),
         allowNull: false
       },
+      admin_id: {
+        type: Sequelize.INTEGER,
+        references: {
+          model: 'users',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'RESTRICT'
+      },
       uploads: {
         type: Sequelize.ARRAY(Sequelize.STRING),
-        allowNull: true,
         defaultValue: []
-      },
-      phone: {
-        type: Sequelize.STRING(20),
-        allowNull: true
       },
       is_active: {
         type: Sequelize.BOOLEAN,
@@ -64,6 +60,6 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('companies');
+    await queryInterface.dropTable('marchants');
   }
 };
