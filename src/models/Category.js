@@ -13,6 +13,7 @@ const Category = sequelize.define('categories', {
     name: {
         type: DataTypes.STRING(50),
         allowNull: false,
+        unique: true,
         validate: {
             notEmpty: { msg: 'name is required' },
             len: { args: [2, 50], msg: 'name must be between 2 and 50 characters' }
@@ -52,7 +53,16 @@ const Category = sequelize.define('categories', {
     // timestamps: true
 })
 
+// ================ Instance Methods ============= //
+// =============================================== //
 
+Category.findByName = function (name) {
+    return this.findOne({ where: { name } })
+}
+
+Category.findActiveCategories = function () {
+    return this.findAll({ where: { status: true } })
+}
 
 
 module.exports = Category;

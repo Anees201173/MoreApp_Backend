@@ -22,15 +22,20 @@ const createCategory = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Validation failed', errors.array());
     }
 
-    const { name, description,  } = req.body;
+    const { name, description, } = req.body;
 
     // Ensure admin_id belongs to a super admin
     // const admin = await User.findByPk(admin_id);
     // if (!admin || admin.role !== 'superadmin') {
     //     throw new ApiError(403, 'admin_id must belong to a super admin');
     // }
+    const category = await Category.findByName(name)
+    if (category) {
+        throw new ApiError(400, 'category already exists with this name')
 
-    const category = await Category.create({
+    }
+
+    const finalCategory = await Category.create({
         name,
         description,
     });
@@ -38,7 +43,7 @@ const createCategory = asyncHandler(async (req, res) => {
     res.status(201).json(
         new ApiResponse(
             201,
-            { category: sanitizeCategory(category) },
+            { category: sanitizeCategory(finalCategory) },
             'Category created successfully'
         )
     );
@@ -71,9 +76,9 @@ const getAllCategories = asyncHandler(async (req, res) => {
         limit,
         offset,
         order: [['id', 'DESC']],
-        include: [
-            { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
-        ]
+        // include: [
+        //     { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
+        // ]
     });
 
     const result = getPagingData(data, page, limit);
@@ -92,9 +97,9 @@ const getCategoryById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const category = await Category.findByPk(id, {
-        include: [
-            { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
-        ]
+        // include: [
+        //     { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
+        // ]
     });
 
     if (!category) throw new ApiError(404, 'Category not found');

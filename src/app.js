@@ -16,6 +16,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes')
 const comapnyRoutes = require('./routes/comapny.routes')
 const marchantRoutes = require('./routes/marchant.routes')
+const categoryRoutes = require('./routes/category.routes')
 
 const app = express();
 
@@ -64,6 +65,7 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
 app.use('/api/v1/company', comapnyRoutes)
 app.use('/api/v1/marchant', marchantRoutes)
+app.use('/api/v1/category', categoryRoutes)
 
 // 404 handler
 app.use(notFoundHandler);

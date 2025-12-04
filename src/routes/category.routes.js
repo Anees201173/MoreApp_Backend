@@ -28,10 +28,6 @@ const createValidators = [
         .trim()
         .notEmpty().withMessage('Description is required')
         .isLength({ min: 2, max: 255 }).withMessage('Description must be between 2 and 255 characters'),
-
-    body('admin_id')
-        .notEmpty().withMessage('admin_id is required')
-        .isInt().withMessage('admin_id must be an integer')
 ];
 
 // update category validators
