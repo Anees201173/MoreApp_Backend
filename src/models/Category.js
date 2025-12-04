@@ -1,0 +1,58 @@
+const { DataTypes } = require('sequelize')
+const { sequelize } = require('../config/db')
+const { types } = require('pg')
+const User = require('./User')
+
+
+const Category = sequelize.define('categories', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+    },
+    name: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'name is required' },
+            len: { args: [2, 50], msg: 'name must be between 2 and 50 characters' }
+        }
+    },
+    description: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'description is required' },
+            len: { args: [2, 255], msg: 'description must be at between 2 and 255 charaters' },
+        }
+    },
+    status: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: false
+    },
+    // admin_id: {
+    //     type: DataTypes.INTEGER,
+    //     allowNull: true,
+    //     references: {
+    //         model: User,
+    //         key: 'id'
+    //     },
+    //     onUpdate: 'CASCADE',
+    //     onDelete: 'RESTRICT'
+    // },
+    uploads: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
+        allowNull: true,
+        defaultValue: [] // Optional: default empty array
+    },
+
+}, {
+    tableName: 'categories',
+    // timestamps: true
+})
+
+
+
+
+module.exports = Category;

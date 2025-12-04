@@ -76,7 +76,7 @@ const getMarchantById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const marchant = await Marchant.findByPk(id, {
-        include: [{ model: User, as: 'marchantadmin', attributes: ['id', 'name', 'email'] }],
+        include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }],
         attributes: { exclude: ['password'] }
     });
 

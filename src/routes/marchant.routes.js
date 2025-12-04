@@ -70,7 +70,7 @@ const updateValidators = [
         .isInt().withMessage('Admin ID must be an integer')
 ];
 
-// ===================== Routes ===================== //
+// ===================== Admin Routes ===================== //
 
 router.post('/', auth, authorize('superadmin'), createValidators, createMarchant);
 router.get('/', auth, getAllMarchants);
@@ -78,5 +78,8 @@ router.get('/:id', auth, authorize('superadmin', 'marchant'), getMarchantById);
 router.put('/:id', auth, authorize('superadmin', 'marchant'), updateValidators, updateMarchant);
 router.delete('/:id', auth, authorize('superadmin'), deleteMarchant);
 router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleMarchantStatus);
+
+
+// ===================== Marchants Routes =================== // 
 
 module.exports = router;
