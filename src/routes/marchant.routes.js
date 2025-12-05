@@ -4,22 +4,22 @@ const router = express.Router();
 const authorize = require('../middleware/authorize');
 const auth = require('../middleware/auth');
 const {
-    createMarchant,
-    getAllMarchants,
-    getMarchantById,
-    updateMarchant,
-    deleteMarchant,
-    toggleMarchantStatus
+    createMerchant,
+    getAllMerchants,
+    getMerchantById,
+    updateMerchant,
+    deleteMerchant,
+    toggleMerchantStatus
 } = require('../controllers/marchant.controller');
 
 // ===================== Validators ===================== //
 
-// create marchant validators
+// create merchant validators
 const createValidators = [
     body('name')
         .trim()
-        .notEmpty().withMessage('Marchant name is required')
-        .isLength({ min: 2 }).withMessage('Marchant name must be at least 2 characters'),
+        .notEmpty().withMessage('Merchant name is required')
+        .isLength({ min: 2 }).withMessage('Merchant name must be at least 2 characters'),
 
     body('email')
         .trim()
@@ -48,13 +48,13 @@ const createValidators = [
         .isInt().withMessage('Admin ID must be an integer')
 ];
 
-// update marchant validators
+// update merchant validators
 const updateValidators = [
     body('name')
         .optional({ checkFalsy: true })
         .trim()
-        .isLength({ min: 2 }).withMessage('Marchant name must be at least 2 characters')
-        .matches(/^[A-Za-z0-9\s&.-]+$/).withMessage('Marchant name contains invalid characters'),
+        .isLength({ min: 2 }).withMessage('Merchant name must be at least 2 characters')
+        .matches(/^[A-Za-z0-9\s&.-]+$/).withMessage('Merchant name contains invalid characters'),
 
     body('phone')
         .optional({ checkFalsy: true })
@@ -72,14 +72,14 @@ const updateValidators = [
 
 // ===================== Admin Routes ===================== //
 
-router.post('/', auth, authorize('superadmin'), createValidators, createMarchant);
-router.get('/', auth, getAllMarchants);
-router.get('/:id', auth, authorize('superadmin', 'marchant'), getMarchantById);
-router.put('/:id', auth, authorize('superadmin', 'marchant'), updateValidators, updateMarchant);
-router.delete('/:id', auth, authorize('superadmin'), deleteMarchant);
-router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleMarchantStatus);
+router.post('/', auth, authorize('superadmin'), createValidators, createMerchant);
+router.get('/', auth, getAllMerchants);
+router.get('/:id', auth, authorize('superadmin', 'merchant'), getMerchantById);
+router.put('/:id', auth, authorize('superadmin', 'merchant'), updateValidators, updateMerchant);
+router.delete('/:id', auth, authorize('superadmin'), deleteMerchant);
+router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleMerchantStatus);
 
 
-// ===================== Marchants Routes =================== // 
+// ===================== Merchants Routes =================== // 
 
 module.exports = router;

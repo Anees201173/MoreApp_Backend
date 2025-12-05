@@ -48,7 +48,7 @@ module.exports = {
         gender: 'male',
         city: 'Trade Town',
         country: 'USA',
-        role: 'marchent',
+        role: 'merchant',
         is_active: true,
         email_verified: false,
         // company_id: null,

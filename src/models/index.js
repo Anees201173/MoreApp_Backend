@@ -4,7 +4,7 @@ const { sequelize } = require('../config/db');
 // Import all models
 const User = require('./User')
 const Company = require('./Company')
-const Marchant = require('./Marchant')
+const Merchant = require('./Marchant')
 const Category = require('./Category')
 const Product = require('./Product')
 
@@ -38,15 +38,15 @@ const defineAssociations = () => {
   //   foreignKey: 'company_id',
   //   as: 'company'
   // });
-  // ============== User <--> Marchant ======= //
+  // ============== User <--> Merchant ======= //
   // ========================================= //
   // Merchant <-> User (1 to 1)
-  User.hasOne(Marchant, {
+  User.hasOne(Merchant, {
     foreignKey: 'user_id',
-    as: 'marchantadmin'
+    as: 'merchantadmin'
   });
 
-  Marchant.belongsTo(User, {
+  Merchant.belongsTo(User, {
     foreignKey: 'user_id',
     as: 'user'
   });
@@ -95,7 +95,7 @@ module.exports = {
   Sequelize,
   User,
   Company,
-  Marchant,
+  Merchant,
   Category,
   Product
 

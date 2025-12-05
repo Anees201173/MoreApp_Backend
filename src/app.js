@@ -15,7 +15,7 @@ const notFoundHandler = require("./middleware/notFoundHandler");
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes')
 const comapnyRoutes = require('./routes/comapny.routes')
-const marchantRoutes = require('./routes/marchant.routes')
+const merchantRoutes = require('./routes/marchant.routes')
 const categoryRoutes = require('./routes/category.routes')
 const productRoutes = require('./routes/products.routes')
 
@@ -62,7 +62,7 @@ app.get("/health", (req, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/user', userRoutes)
 app.use('/api/v1/company', comapnyRoutes)
-app.use('/api/v1/marchant', marchantRoutes)
+app.use('/api/v1/merchant', merchantRoutes)
 app.use('/api/v1/category', categoryRoutes)
 app.use('/api/v1/products', productRoutes)
 

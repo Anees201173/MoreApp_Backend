@@ -3,7 +3,7 @@ const { sequelize } = require('../config/db');
 const  bcrypt  = require('bcryptjs')
 const User = require('./User')
 
-const Marchant = sequelize.define('Marchant', {
+const Merchant = sequelize.define('Merchant', {
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -13,7 +13,7 @@ const Marchant = sequelize.define('Marchant', {
         type: DataTypes.STRING(50),
         allowNull: false,
         validate: {
-            notEmpty: { msg: 'Marchant name is required' },
+            notEmpty: { msg: 'Merchant name is required' },
             len: { args: [2, 50], msg: 'name must be between 2 and 50 characters' }
         }
     },
@@ -27,7 +27,7 @@ const Marchant = sequelize.define('Marchant', {
     email: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: { msg: 'Marchant Email address already exists' },
+        unique: { msg: 'Merchant Email address already exists' },
         validate: {
             notEmpty: { msg: 'Email is required' },
             isEmail: { msg: 'Must be a valid email address' }
@@ -70,7 +70,7 @@ const Marchant = sequelize.define('Marchant', {
         allowNull: false
     },
 }, {
-    tableName: 'marchants',
+    tableName: 'merchants',
     hooks: {
         beforeCreate: async (company) => {
             if (company.password) {
@@ -91,26 +91,26 @@ const Marchant = sequelize.define('Marchant', {
 // <===========  Instance methods ==========> //
 // ========================================== //
 
-Marchant.prototype.validatePassword = async function (password) {
+Merchant.prototype.validatePassword = async function (password) {
     return await bcrypt.compare(password, this.password);
 };
 
-Marchant.prototype.toJSON = function () {
+Merchant.prototype.toJSON = function () {
     const values = Object.assign({}, this.get());
     delete values.password;
     return values;
 };
 
-Marchant.findByEmail = function (email) {
+Merchant.findByEmail = function (email) {
     return this.findOne({ where: { email } })
 }
 
-Marchant.findByMarchantAdmin = function (companyAdmin) {
+Merchant.findByMerchantAdmin = function (companyAdmin) {
     return this.findOne({ where: { companyAdmin } })
 }
 
-Marchant.findActiveMarchants = function () {
+Merchant.findActiveMerchants = function () {
     return this.findAll({ where: { is_active: true } })
 }
 
-module.exports = Marchant;
+module.exports = Merchant;

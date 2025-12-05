@@ -97,13 +97,13 @@ const updateValidators = [
 
 // ===================== Product Routes ===================== //
 // Only Merchant can create products
-router.post('/', auth, authorize('marchent'), createValidators, createProduct);
+router.post('/', auth, authorize('merchant'), createValidators, createProduct);
 router.get('/', auth, getAllProducts);
 router.get('/:id', auth, getProductById);
 router.get('/user/:merchant_id', auth, getUserProduct)
-router.put('/:id', auth, authorize('marchent'), updateValidators, updateProduct);
-router.delete('/:id', auth, authorize('marchent'), deleteProduct);
-router.patch('/:id/toggle-status', auth, authorize('superadmin', 'marchent'), toggleProductStatus);
+router.put('/:id', auth, authorize('merchant'), updateValidators, updateProduct);
+router.delete('/:id', auth, authorize('merchant'), deleteProduct);
+router.patch('/:id/toggle-status', auth, authorize('superadmin', 'merchant'), toggleProductStatus);
 
 
 module.exports = router;

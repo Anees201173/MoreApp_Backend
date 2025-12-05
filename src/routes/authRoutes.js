@@ -41,7 +41,7 @@ const registerValidation = [
 
   body("role")
     .optional()
-    .isIn(["superadmin", "companyadmin", "marchent", "user"])
+    .isIn(["superadmin", "companyadmin", "merchant", "user"])
     .withMessage("Role must be one of admin, customer, member, or user"),
 
   body("country")
