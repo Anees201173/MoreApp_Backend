@@ -15,16 +15,16 @@ const Category = sequelize.define('categories', {
         allowNull: false,
         unique: true,
         validate: {
-            notEmpty: { msg: 'name is required' },
-            len: { args: [2, 50], msg: 'name must be between 2 and 50 characters' }
+            notEmpty: { msg: 'category name is required' },
+            len: { args: [2, 50], msg: 'category name must be between 2 and 50 characters' }
         }
     },
     description: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-            notEmpty: { msg: 'description is required' },
-            len: { args: [2, 255], msg: 'description must be at between 2 and 255 charaters' },
+            notEmpty: { msg: 'category description is required' },
+            len: { args: [2, 255], msg: 'category description must be at between 2 and 255 charaters' },
         }
     },
     status: {
