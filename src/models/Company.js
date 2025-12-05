@@ -13,8 +13,8 @@ const Company = sequelize.define('company', {
         type: DataTypes.STRING(50),
         allowNull: false,
         validate: {
-            notEmpty: { msg: 'name is required' },
-            len: { args: [2, 50], msg: 'name must be between 2 and 50 characters' }
+            notEmpty: { msg: 'company name is required' },
+            len: { args: [2, 50], msg: 'company name must be between 2 and 50 characters' }
         }
     },
     admin_id: {
@@ -30,9 +30,9 @@ const Company = sequelize.define('company', {
     email: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: { msg: 'Email address already exists' },
+        unique: { msg: 'company Email address already exists' },
         validate: {
-            notEmpty: { msg: 'Email is required' },
+            notEmpty: { msg: 'company Email is required' },
             isEmail: { msg: 'Must be a valid email address' }
         }
     },
