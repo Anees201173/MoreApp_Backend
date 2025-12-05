@@ -57,7 +57,7 @@ const Product = sequelize.define('products', {
         defaultValue: []
     },
 
-    energyPoints: {
+    energy_points: {
         type: DataTypes.INTEGER,
         allowNull: true,
         defaultValue: 0
