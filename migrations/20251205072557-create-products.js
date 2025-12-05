@@ -57,7 +57,7 @@ module.exports = {
         defaultValue: []
       },
 
-      energyPoints: {
+      energy_points: {
         type: Sequelize.INTEGER,
         allowNull: true,
         defaultValue: 0

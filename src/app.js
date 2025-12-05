@@ -12,11 +12,12 @@ const errorHandler = require("./middleware/errorHandler");
 const notFoundHandler = require("./middleware/notFoundHandler");
 
 // Import routes
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const comapnyRoutes = require("./routes/comapny.routes");
-const marchantRoutes = require("./routes/marchant.routes");
-const categoryRoutes = require("./routes/category.routes");
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes')
+const comapnyRoutes = require('./routes/comapny.routes')
+const marchantRoutes = require('./routes/marchant.routes')
+const categoryRoutes = require('./routes/category.routes')
+const productRoutes = require('./routes/products.routes')
 
 const app = express();
 
@@ -58,11 +59,12 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/user", userRoutes);
-app.use("/api/v1/company", comapnyRoutes);
-app.use("/api/v1/marchant", marchantRoutes);
-app.use("/api/v1/category", categoryRoutes);
+app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/user', userRoutes)
+app.use('/api/v1/company', comapnyRoutes)
+app.use('/api/v1/marchant', marchantRoutes)
+app.use('/api/v1/category', categoryRoutes)
+app.use('/api/v1/products', productRoutes)
 
 // 404 handler
 app.use(notFoundHandler);
