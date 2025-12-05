@@ -12,11 +12,11 @@ const errorHandler = require("./middleware/errorHandler");
 const notFoundHandler = require("./middleware/notFoundHandler");
 
 // Import routes
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes')
-const comapnyRoutes = require('./routes/comapny.routes')
-const marchantRoutes = require('./routes/marchant.routes')
-const categoryRoutes = require('./routes/category.routes')
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const comapnyRoutes = require("./routes/comapny.routes");
+const marchantRoutes = require("./routes/marchant.routes");
+const categoryRoutes = require("./routes/category.routes");
 
 const app = express();
 
@@ -44,9 +44,6 @@ if (config.nodeEnv === "development") {
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-
-
-
 // Static files
 app.use(express.static("public"));
 
@@ -61,18 +58,17 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
-app.use('/api/v1/auth', authRoutes)
-app.use('/api/v1/user', userRoutes)
-app.use('/api/v1/company', comapnyRoutes)
-app.use('/api/v1/marchant', marchantRoutes)
-app.use('/api/v1/category', categoryRoutes)
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/company", comapnyRoutes);
+app.use("/api/v1/marchant", marchantRoutes);
+app.use("/api/v1/category", categoryRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
 
 // Global error handler
 app.use(errorHandler);
-
 
 // Database connection and server start
 const startServer = async () => {
@@ -83,9 +79,7 @@ const startServer = async () => {
     // Start server
     const port = config.port;
     app.listen(port, () => {
-      console.log(
-        ` Server running on port ${port} in ${config.nodeEnv} mode`
-      );
+      console.log(` Server running on port ${port} in ${config.nodeEnv} mode`);
       console.log(` Health check: http://localhost:${port}/health`);
     });
   } catch (error) {
