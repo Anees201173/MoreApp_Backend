@@ -13,7 +13,7 @@ const Marchant = sequelize.define('Marchant', {
         type: DataTypes.STRING(50),
         allowNull: false,
         validate: {
-            notEmpty: { msg: 'name is required' },
+            notEmpty: { msg: 'Marchant name is required' },
             len: { args: [2, 50], msg: 'name must be between 2 and 50 characters' }
         }
     },
@@ -27,7 +27,7 @@ const Marchant = sequelize.define('Marchant', {
     email: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        unique: { msg: 'Email address already exists' },
+        unique: { msg: 'Marchant Email address already exists' },
         validate: {
             notEmpty: { msg: 'Email is required' },
             isEmail: { msg: 'Must be a valid email address' }
