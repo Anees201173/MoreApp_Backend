@@ -45,9 +45,6 @@ if (config.nodeEnv === "development") {
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-
-
-
 // Static files
 app.use(express.static("public"));
 
@@ -75,7 +72,6 @@ app.use(notFoundHandler);
 // Global error handler
 app.use(errorHandler);
 
-
 // Database connection and server start
 const startServer = async () => {
   try {
@@ -85,9 +81,7 @@ const startServer = async () => {
     // Start server
     const port = config.port;
     app.listen(port, () => {
-      console.log(
-        ` Server running on port ${port} in ${config.nodeEnv} mode`
-      );
+      console.log(` Server running on port ${port} in ${config.nodeEnv} mode`);
       console.log(` Health check: http://localhost:${port}/health`);
     });
   } catch (error) {

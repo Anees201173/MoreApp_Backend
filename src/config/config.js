@@ -29,6 +29,9 @@ module.exports = {
     return { url };
   })(),
 
+  // Automatically sync models on connect (set to true only for development prototyping)
+  autoSyncModels: process.env.DB_AUTO_SYNC_MODELS === 'true',
+
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET || 'changeme',
