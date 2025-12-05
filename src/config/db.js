@@ -33,7 +33,7 @@ const connectDatabase = async () => {
     await sequelize.authenticate();
     console.log(' Database connection established successfully.');
     if (config.nodeEnv === 'development') {
-      await sequelize.sync({ alter: true });
+      //await sequelize.sync({ alter: true });
       console.log(' Database models synchronized.');
     }
   } catch (error) {

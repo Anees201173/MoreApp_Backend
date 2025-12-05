@@ -96,7 +96,8 @@ module.exports = {
   User,
   Company,
   Marchant,
-  Category
+  Category,
+  Product
 
   // Add other models here as you create them
 }
