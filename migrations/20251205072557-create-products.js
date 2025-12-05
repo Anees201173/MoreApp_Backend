@@ -71,7 +71,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: User,
+          model: 'users',
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -82,11 +82,21 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: true,
         references: {
-          model: Category,
+          model: 'categories',
           key: 'id'
         },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL'
+      },
+      created_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.fn('now')
+      },
+      updated_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.fn('now')
       }
     })
   },

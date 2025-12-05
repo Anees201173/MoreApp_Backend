@@ -13,9 +13,10 @@ module.exports = {
         color: 'Black',
         uploads: ['nike-shoe.jpg'],
         energyPoints: 20,
+        user_id: 3,
         category_id: 2,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        created_at: new Date(),
+        updated_at: new Date()
       },
 
       {
@@ -27,9 +28,10 @@ module.exports = {
         color: 'Blue',
         uploads: ['iphone14.jpg'],
         energyPoints: 100,
+        user_id: 3,
         category_id: 3,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        created_at: new Date(),
+        updated_at: new Date()
       },
 
       {
@@ -41,9 +43,10 @@ module.exports = {
         color: 'White',
         uploads: ['tshirt-white.jpg'],
         energyPoints: 10,
+        user_id: 3,
         category_id: 1,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        created_at: new Date(),
+        updated_at: new Date()
       },
     ]);
   },

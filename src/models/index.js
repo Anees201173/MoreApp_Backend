@@ -6,6 +6,8 @@ const User = require('./User')
 const Company = require('./Company')
 const Marchant = require('./Marchant')
 const Category = require('./Category')
+const Product = require('./Product')
+
 
 
 // Define model associations
@@ -49,7 +51,38 @@ const defineAssociations = () => {
     as: 'user'
   });
 
+  // =======================================================
+  //   CATEGORY <-> PRODUCTS   (One Category has Many Products)
+  // =======================================================
+  Category.hasMany(Product, {
+    foreignKey: 'category_id',
+    as: 'products',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
+  });
+
+  Product.belongsTo(Category, {
+    foreignKey: 'category_id',
+    as: 'category'
+  });
+
+
+  // =======================================================
+  //   USER <-> PRODUCTS    (One User has Many Products)
+  // =======================================================
+  User.hasMany(Product, {
+    foreignKey: 'user_id',
+    as: 'userProducts',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
+  });
+
+  Product.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user'
+  });
 };
+
 
 
 
