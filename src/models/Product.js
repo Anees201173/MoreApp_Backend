@@ -12,6 +12,7 @@ const Product = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
+    
 
     title: {
       type: DataTypes.STRING(150),
