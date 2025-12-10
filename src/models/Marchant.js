@@ -49,7 +49,7 @@ const Merchant = sequelize.define('Merchant', {
             len: { args: [5, 255], msg: 'Address must be at least 5 characters long' }
         }
     },
-    admin_id: {
+    user_id: {
         type: DataTypes.INTEGER,
         allowNull: true,
         references: {
