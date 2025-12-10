@@ -10,40 +10,35 @@ module.exports = {
         primaryKey: true,
       },
 
-      name: {
-        type: Sequelize.STRING(100),
-        allowNull: false,
-        validate: {
-          notEmpty: { msg: 'Product name is required' },
-          len: { args: [2, 100], msg: 'Name must be between 2 and 100 characters' }
-        }
+      title: {
+        type: Sequelize.STRING(150),
+        allowNull: false
       },
 
       description: {
-        type: Sequelize.STRING(500),
+        type: Sequelize.TEXT,
         allowNull: true
       },
 
       price: {
-        type: Sequelize.FLOAT,
-        allowNull: false,
-        validate: {
-          isFloat: true,
-          min: 0
-        }
+        type: Sequelize.DECIMAL(10, 2),
+        allowNull: false
+      },
+
+      discount_percentage: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+        defaultValue: 0
       },
 
       quantity: {
         type: Sequelize.INTEGER,
         allowNull: false,
-        validate: {
-          isInt: true,
-          min: 0
-        }
+        defaultValue: 0
       },
 
       size: {
-        type: Sequelize.STRING, // 'S', 'M', 'L', 'XL', etc.
+        type: Sequelize.STRING,
         allowNull: true
       },
 
@@ -52,35 +47,46 @@ module.exports = {
         allowNull: true
       },
 
-      uploads: {
+      images: {
         type: Sequelize.ARRAY(Sequelize.STRING),
+        allowNull: true,
         defaultValue: []
       },
 
-      energy_points: {
-        type: Sequelize.INTEGER,
+      brand: {
+        type: Sequelize.STRING(100),
+        allowNull: true
+      },
+
+      gender: {
+        type: Sequelize.ENUM('men', 'women', 'unisex', 'kids'),
         allowNull: true,
-        defaultValue: 0
+        defaultValue: 'unisex'
+      },
+
+      is_featured: {
+        type: Sequelize.BOOLEAN,
+        defaultValue: false
       },
 
       status: {
         type: Sequelize.BOOLEAN,
         defaultValue: true
       },
-      user_id: {
+      merchant_id: {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'users',
+          model: 'merchants',
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: " SET NULL"
+        onDelete: 'CASCADE'
       },
 
       category_id: {
         type: Sequelize.INTEGER,
-        allowNull: true,
+        allowNull: false,
         references: {
           model: 'categories',
           key: 'id'

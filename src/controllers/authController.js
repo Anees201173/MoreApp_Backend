@@ -16,7 +16,6 @@ const generateToken = (userId, role) => {
   });
 };
 
-
 // @desc    Register a new user
 // @route   POST /api/v1/auth/register
 // @access  Public
@@ -27,7 +26,17 @@ const register = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors.array());
   }
 
-  const { name, username, email, password, phone, role, gender, country, city } = req.body;
+  const {
+    name,
+    username,
+    email,
+    password,
+    phone,
+    role,
+    gender,
+    country,
+    city,
+  } = req.body;
 
   // Check if email exists
   let user = await User.findByEmail(email);
@@ -44,13 +53,15 @@ const register = asyncHandler(async (req, res) => {
       await user.save();
 
       console.log(`Resent OTP for ${email}: ${otp}`);
-      return res.status(200).json(
-        new ApiResponse(
-          200,
-          { email: user.email },
-          `Registration OTP resent to ${email}. Verify to complete registration`
-        )
-      );
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            { email: user.email },
+            `Registration OTP resent to ${email}. Verify to complete registration`
+          )
+        );
     }
 
     // If email exists and verified, reject
@@ -81,19 +92,20 @@ const register = asyncHandler(async (req, res) => {
     email_verified: false,
     otp: otp,
     otpType: "register",
-    otpExpires: otpExpires
+    otpExpires: otpExpires,
   });
 
   console.log(`OTP for ${email}: ${otp}`);
-  res.status(201).json(
-    new ApiResponse(
-      201,
-      { email: user.email },
-      `Registration OTP sent to ${email}. Verify to complete registration`
-    )
-  );
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { email: user.email },
+        `Registration OTP sent to ${email}. Verify to complete registration`
+      )
+    );
 });
-
 
 // @desc    Login user
 // @route   POST /api/v1/auth/login
@@ -129,11 +141,11 @@ const login = asyncHandler(async (req, res) => {
 
   // Sanitize user object before sending
   const sanitizedUser = sanitizeObject(user.toJSON(), [
-    'password',
-    'otp',
-    'otpExpires',
-    'otpType',
-    'refreshToken' // optional, if you store it in DB
+    "password",
+    "otp",
+    "otpExpires",
+    "otpType",
+    "refreshToken", // optional, if you store it in DB
   ]);
 
   // Generate token
@@ -162,11 +174,11 @@ const getProfile = asyncHandler(async (req, res) => {
 
   // Sanitize user object before sending
   const sanitizedUser = sanitizeObject(user.toJSON(), [
-    'password',
-    'otp',
-    'otpExpires',
-    'otpType',
-    'refreshToken' // optional, if you store it in DB
+    "password",
+    "otp",
+    "otpExpires",
+    "otpType",
+    "refreshToken", // optional, if you store it in DB
   ]);
 
   if (!user) {
@@ -175,7 +187,9 @@ const getProfile = asyncHandler(async (req, res) => {
 
   res
     .status(200)
-    .json(new ApiResponse(200, { sanitizedUser }, "Profile retrieved successfully"));
+    .json(
+      new ApiResponse(200, { sanitizedUser }, "Profile retrieved successfully")
+    );
 });
 
 // @desc    Update user profile
@@ -188,7 +202,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors.array());
   }
 
-  const { name, username, phone } = req.body;
+  const { name, username, phone, role } = req.body;
 
   const user = await User.findByPk(req.user.id);
   if (!user) {
@@ -200,6 +214,7 @@ const updateProfile = asyncHandler(async (req, res) => {
     name: name || user.name,
     username: username || user.username,
     phone: phone || user.phone,
+    role: role || user.role,
   });
 
   res
@@ -230,9 +245,9 @@ const changePassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Current password is incorrect");
   }
 
-  // check confirm Password 
+  // check confirm Password
   if (!new_password === confirm_password) {
-    throw new ApiError(400, "password and confirm password must be same")
+    throw new ApiError(400, "password and confirm password must be same");
   }
 
   // Update password
@@ -255,7 +270,7 @@ const forgetPassword = asyncHandler(async (req, res) => {
 
   const { email } = req.body;
   const user = await User.findByEmail(email);
-  // check if user exists 
+  // check if user exists
   if (!user) {
     throw new ApiError(404, "User not found");
   }
@@ -264,7 +279,7 @@ const forgetPassword = asyncHandler(async (req, res) => {
   const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes from now
 
   user.otp = otp;
-  user.otpType = 'reset'
+  user.otpType = "reset";
   user.otpExpires = new Date(otpExpires);
   await user.save();
 
@@ -352,7 +367,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 
   if (decoded.type !== "password-reset") {
-    throw new ApiError(400, "Invalid reset token")
+    throw new ApiError(400, "Invalid reset token");
   }
 
   const { new_password, confirm_password } = req.body;
