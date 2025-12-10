@@ -1,15 +1,14 @@
-const { Category, User } = require('../models');
-const { Op } = require('sequelize');
-const { validationResult } = require('express-validator');
-const asyncHandler = require('../utils/asyncHandler');
-const ApiError = require('../utils/ApiError');
-const ApiResponse = require('../utils/ApiResponse');
-const { getPagination, getPagingData } = require('../utils/pagination');
-const { sanitizeObject } = require('../utils/helpers');
+const { Category, User } = require("../models");
+const { Op } = require("sequelize");
+const { validationResult } = require("express-validator");
+const asyncHandler = require("../utils/asyncHandler");
+const ApiError = require("../utils/ApiError");
+const ApiResponse = require("../utils/ApiResponse");
+const { getPagination, getPagingData } = require("../utils/pagination");
+const { sanitizeObject } = require("../utils/helpers");
 
 // Helper to sanitize Category data
-const sanitizeCategory = (category) =>
-    sanitizeObject(category.toJSON(), []);
+const sanitizeCategory = (category) => sanitizeObject(category.toJSON(), []);
 
 // --------------------------------------------------------
 // @desc    Create new category
@@ -17,35 +16,32 @@ const sanitizeCategory = (category) =>
 // @access  Private (SuperAdmin only)
 // --------------------------------------------------------
 const createCategory = asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        throw new ApiError(400, 'Validation failed', errors.array());
-    }
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, "Validation failed", errors.array());
+  }
 
-    const { name, description, } = req.body;
+  const { name, description, image_url } = req.body;
 
-    // Ensure admin_id belongs to a super admin
-    // const admin = await User.findByPk(admin_id);
-    // if (!admin || admin.role !== 'superadmin') {
-    //     throw new ApiError(403, 'admin_id must belong to a super admin');
-    // }
-    const category = await Category.findByName(name)
-    if (category) {
-        throw new ApiError(400, 'category already exists with this name')
+  const category = await Category.findByName(name);
+  if (category) {
+    throw new ApiError(400, "category already exists with this name");
+  }
 
-    }
+  const finalCategory = await Category.create({
+    name,
+    description,
+    image_url,
+  });
 
-    const finalCategory = await Category.create({
-        name,
-        description,
-    });
-
-    res.status(201).json(
-        new ApiResponse(
-            201,
-            { category: sanitizeCategory(finalCategory) },
-            'Category created successfully'
-        )
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { category: sanitizeCategory(finalCategory) },
+        "Category created successfully"
+      )
     );
 });
 
@@ -55,37 +51,37 @@ const createCategory = asyncHandler(async (req, res) => {
 // @access  Private (Admin)
 // --------------------------------------------------------
 const getAllCategories = asyncHandler(async (req, res) => {
-    const { page, size, search, is_active } = req.query;
-    const { limit, offset } = getPagination(page, size);
+  const { page, size, search, is_active } = req.query;
+  const { limit, offset } = getPagination(page, size);
 
-    const whereClause = {};
+  const whereClause = {};
 
-    if (search) {
-        whereClause[Op.or] = [
-            { name: { [Op.iLike]: `%${search}%` } },
-            { description: { [Op.iLike]: `%${search}%` } }
-        ];
-    }
+  if (search) {
+    whereClause[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
 
-    if (is_active !== undefined) {
-        whereClause.is_active = is_active === 'true';
-    }
+  if (is_active !== undefined) {
+    whereClause.is_active = is_active === "true";
+  }
 
-    const data = await Category.findAndCountAll({
-        where: whereClause,
-        limit,
-        offset,
-        order: [['id', 'DESC']],
-        // include: [
-        //     { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
-        // ]
-    });
+  const data = await Category.findAndCountAll({
+    where: whereClause,
+    limit,
+    offset,
+    order: [["id", "DESC"]],
+    // include: [
+    //     { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
+    // ]
+  });
 
-    const result = getPagingData(data, page, limit);
+  const result = getPagingData(data, page, limit);
 
-    res.status(200).json(
-        new ApiResponse(200, result, 'Categories retrieved successfully')
-    );
+  res
+    .status(200)
+    .json(new ApiResponse(200, result, "Categories retrieved successfully"));
 });
 
 // --------------------------------------------------------
@@ -94,22 +90,24 @@ const getAllCategories = asyncHandler(async (req, res) => {
 // @access  Private
 // --------------------------------------------------------
 const getCategoryById = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const category = await Category.findByPk(id, {
-        // include: [
-        //     { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
-        // ]
-    });
+  const category = await Category.findByPk(id, {
+    // include: [
+    //     { model: User, as: 'admin', attributes: ['id', 'name', 'email'] }
+    // ]
+  });
 
-    if (!category) throw new ApiError(404, 'Category not found');
+  if (!category) throw new ApiError(404, "Category not found");
 
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            { category: sanitizeCategory(category) },
-            'Category retrieved successfully'
-        )
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { category: sanitizeCategory(category) },
+        "Category retrieved successfully"
+      )
     );
 });
 
@@ -119,38 +117,32 @@ const getCategoryById = asyncHandler(async (req, res) => {
 // @access  Private (SuperAdmin or category admin)
 // --------------------------------------------------------
 const updateCategory = asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        throw new ApiError(400, 'Validation failed', errors.array());
-    }
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, "Validation failed", errors.array());
+  }
 
-    const { id } = req.params;
-    const { name, description, admin_id } = req.body;
+  const { id } = req.params;
+  const { name, description, image_url } = req.body;
 
-    const category = await Category.findByPk(id);
-    if (!category) throw new ApiError(404, 'Category not found');
+  const category = await Category.findByPk(id);
+  if (!category) throw new ApiError(404, "Category not found");
 
-    // Authorization
-    if (req.user.role !== 'superadmin' && req.user.id !== category.admin_id) {
-        throw new ApiError(403, 'Not authorized to update this category');
-    }
+  // Authorization - only superadmin can update categories
+  if (req.user.role !== "superadmin") {
+    throw new ApiError(403, "Only superadmin can update categories");
+  }
 
-    // If changing admin_id — verify it's super admin
-    if (admin_id) {
-        const admin = await User.findByPk(admin_id);
-        if (!admin || admin.role !== 'superadmin') {
-            throw new ApiError(403, 'admin_id must belong to a super admin');
-        }
-    }
+  await category.update({ name, description, image_url });
 
-    await category.update({ name, description, admin_id });
-
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            { category: sanitizeCategory(category) },
-            'Category updated successfully'
-        )
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { category: sanitizeCategory(category) },
+        "Category updated successfully"
+      )
     );
 });
 
@@ -160,14 +152,16 @@ const updateCategory = asyncHandler(async (req, res) => {
 // @access  Private (Admin)
 // --------------------------------------------------------
 const deleteCategory = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const category = await Category.findByPk(id);
-    if (!category) throw new ApiError(404, 'Category not found');
+  const category = await Category.findByPk(id);
+  if (!category) throw new ApiError(404, "Category not found");
 
-    await category.destroy();
+  await category.destroy();
 
-    res.status(200).json(new ApiResponse(200, null, 'Category deleted successfully'));
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Category deleted successfully"));
 });
 
 // --------------------------------------------------------
@@ -176,27 +170,31 @@ const deleteCategory = asyncHandler(async (req, res) => {
 // @access  Private (Admin)
 // --------------------------------------------------------
 const toggleCategoryStatus = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const category = await Category.findByPk(id);
-    if (!category) throw new ApiError(404, 'Category not found');
+  const category = await Category.findByPk(id);
+  if (!category) throw new ApiError(404, "Category not found");
 
-    await category.update({ is_active: !category.is_active });
+  await category.update({ is_active: !category.is_active });
 
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            { category: sanitizeCategory(category) },
-            `Category status set to ${category.is_active ? 'active' : 'inactive'} successfully`
-        )
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { category: sanitizeCategory(category) },
+        `Category status set to ${
+          category.is_active ? "active" : "inactive"
+        } successfully`
+      )
     );
 });
 
 module.exports = {
-    createCategory,
-    getAllCategories,
-    getCategoryById,
-    updateCategory,
-    deleteCategory,
-    toggleCategoryStatus
+  createCategory,
+  getAllCategories,
+  getCategoryById,
+  updateCategory,
+  deleteCategory,
+  toggleCategoryStatus,
 };

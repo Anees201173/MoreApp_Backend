@@ -111,7 +111,7 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 
   const { id } = req.params;
-  const { name, username, phone } = req.body;
+  const { name, username, phone, role } = req.body;
 
   const user = await User.findByPk(id);
   if (!user) {
@@ -128,6 +128,7 @@ const updateUser = asyncHandler(async (req, res) => {
     name: name || user.name,
     username: username || user.username,
     phone: phone || user.phone,
+    role : role || user.role
   };
 
   await user.update(updateData);
