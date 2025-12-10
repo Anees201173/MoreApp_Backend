@@ -65,7 +65,7 @@ router.get("/:id", auth, getUserById);
 router.get("/search", auth, authorize("superadmin"), searchUsers);
 //router.get("/search-customers", auth, authorize(""), searchCustomers); 
 // router.post("/", createUserValidation, createUser);
-router.put("/:id", auth, authorize("superadmin", "user"), updateUserValidation, updateUser);
+router.put("/:id", auth, authorize("superadmin", "user"),  updateUser);
 router.delete("/:id", auth, authorize("superadmin"), deleteUser);
 router.patch("/:id/toggle-status", auth, authorize("superadmin"), toggleUserStatus);
 

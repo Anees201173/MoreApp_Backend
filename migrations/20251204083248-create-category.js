@@ -18,23 +18,13 @@ module.exports = {
         type: Sequelize.STRING(255),
         allowNull: false
       },
+      image_url: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
       status: {
         type: Sequelize.BOOLEAN,
         defaultValue: true
-      },
-      // admin_id: {
-      //   type: Sequelize.INTEGER,
-      //   allowNull: true,
-      //   references: {
-      //     model: 'users',
-      //     key: 'id'
-      //   },
-      //   onUpdate: 'CASCADE',
-      //   onDelete: 'RESTRICT'
-      // },
-      uploads: {
-        type: Sequelize.ARRAY(Sequelize.STRING),
-        defaultValue: []
       },
       created_at: {
         allowNull: false,
