@@ -33,7 +33,7 @@ const registerValidation = [
 
   body("password")
     .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters long"),    
+    .withMessage("Password must be at least 6 characters long"),
 
   body("gender")
     .isIn(["male", "female"])

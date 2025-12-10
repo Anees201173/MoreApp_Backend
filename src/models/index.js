@@ -43,7 +43,9 @@ const defineAssociations = () => {
   // Merchant <-> User (1 to 1)
   User.hasOne(Merchant, {
     foreignKey: 'user_id',
-    as: 'merchantadmin'
+    as: 'merchantProfile',
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE'
   });
 
   Merchant.belongsTo(User, {
@@ -68,18 +70,18 @@ const defineAssociations = () => {
 
 
   // =======================================================
-  //   USER <-> PRODUCTS    (One User has Many Products)
+  //   MERCHANT <-> PRODUCTS    (One Merchant has Many Products)
   // =======================================================
-  User.hasMany(Product, {
-    foreignKey: 'user_id',
-    as: 'userProducts',
-    onDelete: 'SET NULL',
+  Merchant.hasMany(Product, {
+    foreignKey: 'merchant_id',
+    as: 'products',
+    onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   });
 
-  Product.belongsTo(User, {
-    foreignKey: 'user_id',
-    as: 'user'
+  Product.belongsTo(Merchant, {
+    foreignKey: 'merchant_id',
+    as: 'merchant'
   });
 };
 

@@ -1,15 +1,14 @@
-const { Product, Category, User } = require('../models');
-const { Op } = require('sequelize');
-const { validationResult } = require('express-validator');
-const asyncHandler = require('../utils/asyncHandler');
-const ApiError = require('../utils/ApiError');
-const ApiResponse = require('../utils/ApiResponse');
-const { getPagination, getPagingData } = require('../utils/pagination');
-const { sanitizeObject } = require('../utils/helpers');
+const { Product, Category, User, Merchant } = require("../models");
+const { Op } = require("sequelize");
+const { validationResult } = require("express-validator");
+const asyncHandler = require("../utils/asyncHandler");
+const ApiError = require("../utils/ApiError");
+const ApiResponse = require("../utils/ApiResponse");
+const { getPagination, getPagingData } = require("../utils/pagination");
+const { sanitizeObject } = require("../utils/helpers");
 
 // Helper: sanitize product output
-const sanitizeProduct = (product) =>
-    sanitizeObject(product.toJSON(), []);
+const sanitizeProduct = (product) => sanitizeObject(product.toJSON(), []);
 
 // ----------------------------------------------------
 // @desc     Create Product
@@ -17,57 +16,78 @@ const sanitizeProduct = (product) =>
 // @access   Private (Only Merchant)
 // ----------------------------------------------------
 exports.createProduct = asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        throw new ApiError(400, 'Validation failed', errors.array());
-    }
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, "Validation failed", errors.array());
+  }
 
-    // Only merchants can create products
-    if (req.user.role !== 'merchant') {
-        throw new ApiError(403, "Only merchants can list products");
-    }
+  // Only merchants can create products
+  if (req.user.role !== "merchant") {
+    throw new ApiError(403, "Only merchants can list products");
+  }
 
-    const { name, description, price, quantity, size, color,
-        uploads, energyPoints, category_id
-    } = req.body;
+  // find merchant record for this authenticated user
+  const merchant = await Merchant.findOne({ where: { user_id: req.user.id } });
+  if (!merchant)
+    throw new ApiError(
+      404,
+      "Merchant profile not found. Create a merchant profile first."
+    );
 
-    // Check category exists & active
-    const category = await Category.findByPk(category_id);
-    if (!category || !category.is_active) {
-        throw new ApiError(404, 'Category not found or inactive');
-    }
+  const {
+    title,
+    name,
+    description,
+    price,
+    quantity,
+    size,
+    color,
+    images,
+    uploads,
+    category_id,
+  } = req.body;
 
-    // Avoid duplicate product name for same merchant
-    const existing = await Product.findOne({
-        where: {
-            name,
-            user_id: req.user.id
-        }
-    });
+  const finalTitle = title || name;
+  const finalImages = images || uploads;
 
-    if (existing) {
-        throw new ApiError(400, 'You already listed a product with this name');
-    }
+  // Check category exists & active (Category uses `status`)
+  const category = await Category.findByPk(category_id);
+  if (!category || !category.status) {
+    throw new ApiError(404, "Category not found or inactive");
+  }
 
-    const finalProduct = await Product.create({
-        name,
-        description,
-        price,
-        quantity,
-        size,
-        color,
-        uploads,
-        energyPoints,
-        category_id,
-        user_id: req.user.id,
-    });
+  // Avoid duplicate product title for same merchant
+  const existing = await Product.findOne({
+    where: {
+      title: finalTitle,
+      merchant_id: merchant.id,
+    },
+  });
 
-    res.status(201).json(
-        new ApiResponse(
-            201,
-            { product: sanitizeProduct(finalProduct) },
-            'Product created successfully'
-        )
+  if (existing) {
+    throw new ApiError(400, "You already listed a product with this title");
+  }
+
+  const finalProduct = await Product.create({
+    title: finalTitle,
+    description,
+    price,
+    quantity,
+    size,
+    color,
+    images: finalImages,
+    category_id,
+    merchant_id: merchant.id,
+  });
+
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { product: sanitizeProduct(finalProduct) },
+        "Product created successfully"
+      )
     );
 });
 
@@ -77,34 +97,34 @@ exports.createProduct = asyncHandler(async (req, res) => {
 // @access   Public (for ecommerce listing)
 // ----------------------------------------------------
 exports.getAllProducts = asyncHandler(async (req, res) => {
-    const { page, size, search, category_id, user_id, status } = req.query;
+  const { page, size, search, category_id, merchant_id, status } = req.query;
 
-    const { limit, offset } = getPagination(page, size);
-    const whereClause = {};
+  const { limit, offset } = getPagination(page, size);
+  const whereClause = {};
 
-    if (search) {
-        whereClause[Op.or] = [
-            { name: { [Op.iLike]: `%${search}%` } },
-            { description: { [Op.iLike]: `%${search}%` } }
-        ];
-    }
+  if (search) {
+    whereClause[Op.or] = [
+      { title: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
 
-    if (category_id) whereClause.category_id = category_id;
-    if (user_id) whereClause.user_id = user_id;
-    if (status !== undefined) whereClause.status = status === "true";
+  if (category_id) whereClause.category_id = category_id;
+  if (merchant_id) whereClause.merchant_id = merchant_id;
+  if (status !== undefined) whereClause.status = status === "true";
 
-    const data = await Product.findAndCountAll({
-        where: whereClause,
-        limit,
-        offset,
-        order: [['id', 'DESC']]
-    });
+  const data = await Product.findAndCountAll({
+    where: whereClause,
+    limit,
+    offset,
+    order: [["id", "DESC"]],
+  });
 
-    const result = getPagingData(data, page, limit);
+  const result = getPagingData(data, page, limit);
 
-    res.status(200).json(
-        new ApiResponse(200, result, 'Products retrieved successfully')
-    );
+  res
+    .status(200)
+    .json(new ApiResponse(200, result, "Products retrieved successfully"));
 });
 
 // ----------------------------------------------------
@@ -113,17 +133,19 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
 // @access   Public
 // ----------------------------------------------------
 exports.getProductById = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const product = await Product.findByPk(id);
-    if (!product) throw new ApiError(404, 'Product not found');
+  const product = await Product.findByPk(id);
+  if (!product) throw new ApiError(404, "Product not found");
 
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            { product: sanitizeProduct(product) },
-            'Product retrieved successfully'
-        )
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { product: sanitizeProduct(product) },
+        "Product retrieved successfully"
+      )
     );
 });
 
@@ -133,52 +155,56 @@ exports.getProductById = asyncHandler(async (req, res) => {
 // @access   Public
 // ----------------------------------------------------
 exports.getUserProduct = asyncHandler(async (req, res) => {
-    const { merchant_id } = req.params;
-    const { page, size, search, category_id, status } = req.query;
+  const { merchant_id } = req.params;
+  const { page, size, search, category_id, status } = req.query;
 
-    const { limit, offset } = getPagination(page, size);
+  const { limit, offset } = getPagination(page, size);
 
-    const merchant = await User.findByPk(merchant_id);
-    if (!merchant || merchant.role !== 'merchant') {
-        throw new ApiError(404, 'Merchant not found');
-    }
+  const merchant = await Merchant.findByPk(merchant_id);
+  if (!merchant) {
+    throw new ApiError(404, "Merchant not found");
+  }
 
-    const whereClause = { user_id: merchant_id };
+  const whereClause = { merchant_id: merchant_id };
 
-    if (search) {
-        whereClause[Op.or] = [
-            { name: { [Op.iLike]: `%${search}%` } },
-            { description: { [Op.iLike]: `%${search}%` } }
-        ];
-    }
+  if (search) {
+    whereClause[Op.or] = [
+      { title: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
 
-    if (category_id) whereClause.category_id = category_id;
-    if (status !== undefined) whereClause.status = status === "true";
+  if (category_id) whereClause.category_id = category_id;
+  if (status !== undefined) whereClause.status = status === "true";
 
-    const data = await Product.findAndCountAll({
-        where: whereClause,
-        limit,
-        offset,
-        order: [["id", "DESC"]],
-    });
+  const data = await Product.findAndCountAll({
+    where: whereClause,
+    limit,
+    offset,
+    order: [["id", "DESC"]],
+  });
 
-    const result = getPagingData(data, page, limit);
-    result.items = result.items.map(sanitizeProduct);
+  const result = getPagingData(data, page, limit);
+  result.items = result.items.map(sanitizeProduct);
 
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            {
-                merchant: {
-                    id: merchant.id,
-                    name: merchant.name,
-                    username: merchant.username,
-                },
-                ...result
-            },
-            "Merchant products retrieved successfully"
-        )
-    );
+  // include merchant owner info from User model
+  const owner = await User.findByPk(merchant.user_id);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        merchant: {
+          id: merchant.id,
+          user_id: merchant.user_id,
+          owner_name: owner ? owner.name : null,
+          owner_username: owner ? owner.username : null,
+        },
+        ...result,
+      },
+      "Merchant products retrieved successfully"
+    )
+  );
 });
 
 // ----------------------------------------------------
@@ -187,29 +213,44 @@ exports.getUserProduct = asyncHandler(async (req, res) => {
 // @access   Private (Merchant only, must own the product)
 // ----------------------------------------------------
 exports.updateProduct = asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        throw new ApiError(400, 'Validation failed', errors.array());
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, "Validation failed", errors.array());
+  }
+
+  const { id } = req.params;
+
+  const product = await Product.findByPk(id);
+  if (!product) throw new ApiError(404, "Product not found");
+
+  // Only product owner (merchant) can update
+  if (req.user.role !== "superadmin") {
+    if (req.user.role !== "merchant") {
+      throw new ApiError(403, "Not authorized to update this product");
     }
 
-    const { id } = req.params;
-
-    const product = await Product.findByPk(id);
-    if (!product) throw new ApiError(404, 'Product not found');
-
-    // Only product owner (merchant) can update
-    if (req.user.role !== 'merchant' || req.user.id !== product.user_id) {
-        throw new ApiError(403, 'Not authorized to update this product');
+    const merchant = await Merchant.findOne({
+      where: { user_id: req.user.id },
+    });
+    if (!merchant || merchant.id !== product.merchant_id) {
+      throw new ApiError(403, "Not authorized to update this product");
     }
+  }
 
-    const updated = await product.update(req.body);
+  // Prevent merchants from changing merchant_id
+  const updatePayload = { ...req.body };
+  if (req.user.role === "merchant") delete updatePayload.merchant_id;
 
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            { product: sanitizeProduct(updated) },
-            'Product updated successfully'
-        )
+  const updated = await product.update(updatePayload);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { product: sanitizeProduct(updated) },
+        "Product updated successfully"
+      )
     );
 });
 
@@ -219,20 +260,28 @@ exports.updateProduct = asyncHandler(async (req, res) => {
 // @access   Private (Merchant only, must own)
 // ----------------------------------------------------
 exports.deleteProduct = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const product = await Product.findByPk(id);
-    if (!product) throw new ApiError(404, 'Product not found');
-
-    if (req.user.role !== 'merchant' || req.user.id !== product.user_id) {
-        throw new ApiError(403, 'Not authorized to delete this product');
+  const product = await Product.findByPk(id);
+  if (!product) throw new ApiError(404, "Product not found");
+  if (req.user.role !== "superadmin") {
+    if (req.user.role !== "merchant") {
+      throw new ApiError(403, "Not authorized to delete this product");
     }
 
-    await product.destroy();
+    const merchant = await Merchant.findOne({
+      where: { user_id: req.user.id },
+    });
+    if (!merchant || merchant.id !== product.merchant_id) {
+      throw new ApiError(403, "Not authorized to delete this product");
+    }
+  }
 
-    res.status(200).json(
-        new ApiResponse(200, null, 'Product deleted successfully')
-    );
+  await product.destroy();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Product deleted successfully"));
 });
 
 // ----------------------------------------------------
@@ -241,22 +290,33 @@ exports.deleteProduct = asyncHandler(async (req, res) => {
 // @access   Private (Merchant only)
 // ----------------------------------------------------
 exports.toggleProductStatus = asyncHandler(async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const product = await Product.findByPk(id);
-    if (!product) throw new ApiError(404, 'Product not found');
+  const product = await Product.findByPk(id);
+  if (!product) throw new ApiError(404, "Product not found");
 
-    if (req.user.role !== 'merchant' || req.user.id !== product.user_id) {
-        throw new ApiError(403, 'Not authorized');
+  if (req.user.role !== "superadmin") {
+    if (req.user.role !== "merchant") {
+      throw new ApiError(403, "Not authorized");
     }
 
-    await product.update({ status: !product.status });
+    const merchant = await Merchant.findOne({
+      where: { user_id: req.user.id },
+    });
+    if (!merchant || merchant.id !== product.merchant_id) {
+      throw new ApiError(403, "Not authorized");
+    }
+  }
 
-    res.status(200).json(
-        new ApiResponse(
-            200,
-            { product: sanitizeProduct(product) },
-            `Product status set to ${product.status ? 'active' : 'inactive'}`
-        )
+  await product.update({ status: !product.status });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { product: sanitizeProduct(product) },
+        `Product status set to ${product.status ? "active" : "inactive"}`
+      )
     );
 });
