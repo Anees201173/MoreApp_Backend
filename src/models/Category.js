@@ -27,25 +27,17 @@ const Category = sequelize.define('categories', {
             len: { args: [2, 255], msg: 'category description must be at between 2 and 255 charaters' },
         }
     },
+    image_url: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+            isUrl: { msg: 'Must be a valid URL' }
+        }
+    },
     status: {
         type: DataTypes.BOOLEAN,
         defaultValue: true,
         allowNull: false
-    },
-    // admin_id: {
-    //     type: DataTypes.INTEGER,
-    //     allowNull: true,
-    //     references: {
-    //         model: User,
-    //         key: 'id'
-    //     },
-    //     onUpdate: 'CASCADE',
-    //     onDelete: 'RESTRICT'
-    // },
-    uploads: {
-        type: DataTypes.ARRAY(DataTypes.STRING),
-        allowNull: true,
-        defaultValue: [] // Optional: default empty array
     },
 
 }, {

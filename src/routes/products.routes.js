@@ -12,14 +12,14 @@ const { createProduct, getAllProducts, getProductById, updateProduct, deleteProd
 
 // Create Product Validators
 const createValidators = [
-    body('name')
+    body('title')
         .trim()
-        .notEmpty().withMessage('Product name is required')
-        .isLength({ min: 2 }).withMessage('Product name must be at least 2 characters'),
+        .notEmpty().withMessage('Product title is required')
+        .isLength({ min: 2 }).withMessage('Product title must be at least 2 characters'),
 
     body('description')
+        .optional({ checkFalsy: true })
         .trim()
-        .notEmpty().withMessage('Product description is required')
         .isLength({ min: 2 }).withMessage('Product description must be at least 2 characters'),
 
     body('price')
@@ -42,27 +42,26 @@ const createValidators = [
         .optional()
         .isString().withMessage('Color must be a string'),
 
-    body('energy_points')
+    body('discount_percentage')
         .optional()
-        .isInt({ min: 0 }).withMessage('Energy points must be a positive integer'),
+        .isInt({ min: 0, max: 100 }).withMessage('Discount must be between 0 and 100'),
 
-    body('uploads')
+    body('images')
         .optional()
-        .isArray().withMessage('Uploads should be an array of file URLs'),
+        .isArray().withMessage('Images should be an array of URLs'),
 ];
 
 
 // Update Product Validators
 const updateValidators = [
-    body('name')
+    body('title')
         .optional({ checkFalsy: true })
         .trim()
-        .isLength({ min: 2 }).withMessage('Product name must be at least 2 characters'),
+        .isLength({ min: 2 }).withMessage('Product title must be at least 2 characters'),
 
     body('description')
         .trim()
         .optional()
-        .notEmpty().withMessage('Product description is required')
         .isLength({ min: 2 }).withMessage('Product description must be at least 2 characters'),
 
     body('price')
@@ -85,11 +84,11 @@ const updateValidators = [
         .optional()
         .isString(),
 
-    body('energy_points')
+    body('discount_percentage')
         .optional()
-        .isInt({ min: 0 }),
+        .isInt({ min: 0, max: 100 }),
 
-    body('uploads')
+    body('images')
         .optional()
         .isArray(),
 ];
