@@ -103,16 +103,16 @@ const User = sequelize.define(
       defaultValue: "user",
       allowNull: false,
     },
-    company_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: "companies",
-        key: "id",
-      },
-      onDelete: "SET NULL",
-      onUpdate: "CASCADE",
-    },
+    // company_id: {
+    //   type: DataTypes.INTEGER,
+    //   allowNull: true,
+    //   references: {
+    //     model: "companies",
+    //     key: "id",
+    //   },
+    //   onDelete: "SET NULL",
+    //   onUpdate: "CASCADE",
+    // },
 
     is_active: {
       type: DataTypes.BOOLEAN,
@@ -129,7 +129,7 @@ const User = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: true,
     },
-    otpExpires: {
+    otp_expires: {
       type: DataTypes.DATE,
       allowNull: true,
     },

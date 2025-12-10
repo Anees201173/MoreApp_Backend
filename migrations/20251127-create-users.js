@@ -74,11 +74,11 @@ module.exports = {
         type: Sequelize.STRING(50),
         allowNull: true
       },
-      otpExpires: {
+      otp_expires: {
         type: Sequelize.DATE,
         allowNull: true
       },
-      otpType: {
+      otp_type: {
         type: Sequelize.ENUM('register', 'login', 'reset'),
         allowNull: true
       },
