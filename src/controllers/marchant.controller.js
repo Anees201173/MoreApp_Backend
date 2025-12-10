@@ -20,7 +20,7 @@ const createMerchant = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Validation failed', errors.array());
     }
 
-    const { name, email, password, confirm_password, phone, address } = req.body;
+    const { name, email, password, confirm_password, phone, address, user_id } = req.body;
 
     if (password !== confirm_password) {
         throw new ApiError(400, 'Password and confirm password must match');
@@ -31,7 +31,14 @@ const createMerchant = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Merchant email already exists');
     }
 
-    const merchant = await Merchant.create({ name, email, password, phone, address });
+    const merchant = await Merchant.create({ 
+        name, 
+        email, 
+        password, 
+        phone, 
+        address,
+        user_id 
+    });
 
     res.status(201).json(new ApiResponse(201, { merchant: sanitizeMerchant(merchant) }, 'Merchant created successfully'));
 });
@@ -95,16 +102,16 @@ const updateMerchant = asyncHandler(async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, phone, address, admin_id } = req.body;
+    const { name, phone, address, user_id } = req.body;
 
     const merchant = await Merchant.findByPk(id);
     if (!merchant) throw new ApiError(404, 'Merchant not found');
 
-    if (req.user.role !== 'superadmin' && req.user.id !== merchant.admin_id) {
+    if (req.user.role !== 'superadmin' && req.user.id !== merchant.user_id) {
         throw new ApiError(403, 'Not authorized to update this merchant');
     }
 
-    const updateData = { name, phone, address, admin_id };
+    const updateData = { name, phone, address, user_id };
     await merchant.update(updateData);
 
     res.status(200).json(new ApiResponse(200, { merchant: sanitizeMerchant(merchant) }, 'Merchant updated successfully'));
