@@ -9,7 +9,7 @@ module.exports = {
         description: 'Casual and trendy t-shirts for men and women.',
         status: true,
         // admin_id: 1,
-        uploads: ['tshirts.jpg'],
+        image_url: 'tshirts.jpg',
         created_at: new Date(),
         updated_at: new Date()
       },
@@ -18,7 +18,7 @@ module.exports = {
         description: 'Running shoes, sneakers, boots, and formal shoes.',
         status: true,
         // admin_id: 1,
-        uploads: ['shoes.jpg'],
+        image_url: ['shoes.jpg'],
         created_at: new Date(),
         updated_at: new Date()
       },
@@ -27,7 +27,7 @@ module.exports = {
         description: 'Latest gadgets, mobiles, laptops, and accessories.',
         status: true,
         // admin_id: 1,
-        uploads: ['electronics.jpg'],
+        image_url: 'electronics.jpg',
         created_at: new Date(),
         updated_at: new Date()
       },
@@ -36,7 +36,7 @@ module.exports = {
         description: 'Digital and analog watches for men and women.',
         status: true,
         // admin_id: 1,
-        uploads: ['watches.jpg'],
+        image_url: ['watches.jpg'],
         created_at: new Date(),
         updated_at: new Date()
       },
@@ -45,7 +45,7 @@ module.exports = {
         description: 'Backpacks, handbags, travel bags and more.',
         status: true,
         // admin_id: 1,
-        uploads: ['bags.jpg'],
+        image_url: 'bags.jpg',
         created_at: new Date(),
         updated_at: new Date()
       },
@@ -54,7 +54,7 @@ module.exports = {
         description: 'Belts, wallets, caps, sunglasses, and more.',
         status: true,
         // admin_id: 1,
-        uploads: ['accessories.jpg'],
+        image_url: 'accessories.jpg',
         created_at: new Date(),
         updated_at: new Date()
       }

@@ -5,45 +5,45 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.bulkInsert('products', [
       {
-        name: 'Nike Running Shoes',
+        title: 'Nike Running Shoes',
         description: 'Lightweight shoes for daily running.',
         price: 89.99,
         quantity: 150,
         size: 'M',
         color: 'Black',
-        uploads: ['nike-shoe.jpg'],
-        energy_points: 20,
-        user_id: 3,
+        images: ['nike-shoe.jpg'],
+        // energy_points: 20,
+        merchant_id: 2,
         category_id: 2,
         created_at: new Date(),
         updated_at: new Date()
       },
 
       {
-        name: 'Apple iPhone 14',
+        title: 'Apple iPhone 14',
         description: 'Latest iPhone model with A16 chip.',
         price: 999.99,
         quantity: 50,
         size: null,
         color: 'Blue',
-        uploads: ['iphone14.jpg'],
-        energy_points: 100,
-        user_id: 3,
+        images: ['iphone14.jpg'],
+        // energy_points: 100,
+        merchant_id: 2,
         category_id: 3,
         created_at: new Date(),
         updated_at: new Date()
       },
 
       {
-        name: 'Slim Fit T-Shirt',
+        title: 'Slim Fit T-Shirt',
         description: 'Soft cotton premium slim fit t-shirt.',
         price: 19.99,
         quantity: 300,
         size: 'L',
         color: 'White',
-        uploads: ['tshirt-white.jpg'],
-        energy_points: 10,
-        user_id: 3,
+        images: ['tshirt-white.jpg'],
+        // energy_points: 10,
+        merchant_id: 2,
         category_id: 1,
         created_at: new Date(),
         updated_at: new Date()
