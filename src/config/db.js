@@ -37,7 +37,7 @@ const connectDatabase = async () => {
       console.log(' Database models synchronized.');
     }
   } catch (error) {
-    console.error(' Unable to connect to the database:', error.message);
+    console.error(' Unable to connect to the database:', error.message || error);
     throw error;
   }
 };
