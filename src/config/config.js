@@ -64,5 +64,13 @@ module.exports = {
       return ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
     })(),
     credentials: true
+  },
+
+  // cloudinary 
+  cloudinary: {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || null,
+    api_key: process.env.CLOUDINARY_API_KEY || null,
+    api_secret: process.env.CLOUDINARY_API_SECRET || null,
+    secure: process.env.CLOUDINARY_SECURE === 'true'
   }
 };

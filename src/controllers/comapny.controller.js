@@ -142,6 +142,38 @@ const toggleCompanyStatus = asyncHandler(async (req, res) => {
   ));
 });
 
+// @desc    upload images 
+// @route   POST/api/v1/company/
+
+// @desc    Upload company images
+// @route   POST /api/v1/company/:id/upload
+// @access  Private (superadmin or companyadmin)
+const uploadCompany = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const company = await Company.findByPk(id);
+  if (!company) throw new ApiError(404, 'Company not found');
+
+  // authorization: company admin or superadmin
+  if (req.user.role !== 'superadmin' && req.user.id !== company.admin_id) {
+    throw new ApiError(403, 'Not authorized to upload for this company');
+  }
+
+  // accept single file (multer-storage-cloudinary will populate req.file)
+  const file = req.file;
+  if (!file) throw new ApiError(400, 'No file uploaded');
+
+  const url = file.path || file.secure_url || file.url || null;
+  if (!url) throw new ApiError(500, 'Uploaded file missing URL');
+
+  // push to uploads array
+  const uploads = Array.isArray(company.uploads) ? company.uploads.slice() : [];
+  uploads.push(url);
+  await company.update({ uploads });
+
+  res.status(200).json(new ApiResponse(200, { uploads: company.uploads }, 'File uploaded successfully'));
+});
+
 module.exports = {
   createCompany,
   getAllCompanies,
@@ -149,4 +181,5 @@ module.exports = {
   updateCompany,
   deleteCompany,
   toggleCompanyStatus
+  , uploadCompany
 };

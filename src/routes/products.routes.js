@@ -5,7 +5,8 @@ const router = express.Router();
 const authorize = require('../middleware/authorize');
 const auth = require('../middleware/auth');
 
-const { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, toggleProductStatus, getUserProduct } = require('../controllers/product.controller');
+const { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, toggleProductStatus, getUserProduct, uploadProductImages } = require('../controllers/product.controller');
+const { array } = require('../middleware/multer');
 
 
 // ===================== Validators ===================== //
@@ -103,6 +104,9 @@ router.get('/user/:merchant_id', auth, getUserProduct)
 router.put('/:id', auth, authorize('merchant'), updateValidators, updateProduct);
 router.delete('/:id', auth, authorize('merchant'), deleteProduct);
 router.patch('/:id/toggle-status', auth, authorize('superadmin', 'merchant'), toggleProductStatus);
+
+// upload product images (multiple)
+router.post('/:id/upload', auth, authorize('superadmin', 'merchant'), array('images', 10), uploadProductImages);
 
 
 module.exports = router;

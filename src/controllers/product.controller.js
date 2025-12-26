@@ -320,3 +320,37 @@ exports.toggleProductStatus = asyncHandler(async (req, res) => {
       )
     );
 });
+
+// ----------------------------------------------------
+// @desc     Upload product images
+// @route    POST /api/v1/products/:id/upload
+// @access   Private (merchant who owns product or superadmin)
+// ----------------------------------------------------
+exports.uploadProductImages = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const product = await Product.findByPk(id);
+  if (!product) throw new ApiError(404, 'Product not found');
+
+  // authorization: superadmin or the merchant owner
+  if (req.user.role !== 'superadmin') {
+    if (req.user.role !== 'merchant') throw new ApiError(403, 'Not authorized');
+
+    const merchant = await Merchant.findOne({ where: { user_id: req.user.id } });
+    if (!merchant || merchant.id !== product.merchant_id) {
+      throw new ApiError(403, 'Not authorized to upload images for this product');
+    }
+  }
+
+  const files = req.files || [];
+  if (!files.length) throw new ApiError(400, 'No files uploaded');
+
+  const urls = files.map((f) => f.path || f.secure_url || f.url).filter(Boolean);
+  if (!urls.length) throw new ApiError(500, 'Uploaded files missing URLs');
+
+  const images = Array.isArray(product.images) ? product.images.slice() : [];
+  images.push(...urls);
+  await product.update({ images });
+
+  res.status(200).json(new ApiResponse(200, { images: product.images }, 'Product images uploaded successfully'));
+});

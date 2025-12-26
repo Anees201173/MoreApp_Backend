@@ -8,7 +8,9 @@ const { createCompany,
     getCompanyById,
     updateCompany,
     deleteCompany,
-    toggleCompanyStatus } = require('../controllers/comapny.controller')
+    toggleCompanyStatus,
+    uploadCompany } = require('../controllers/comapny.controller')
+const { single } = require('../middleware/multer');
 
 // ===================== Validators ===================== //
 
@@ -66,6 +68,9 @@ router.get('/:id', auth, authorize('superadmin', 'companyadmin'), getCompanyById
 router.put('/:id', auth, authorize('superadmin', 'companyadmin'), updateValidators, updateCompany)
 router.delete('/:id', auth, authorize("superadmin"), deleteCompany)
 router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleCompanyStatus)
+
+// upload route
+router.post('/:id/upload', auth, authorize('superadmin', 'companyadmin'), single('image'), uploadCompany)
 
 
 

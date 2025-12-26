@@ -149,6 +149,33 @@ const toggleMerchantStatus = asyncHandler(async (req, res) => {
     ));
 });
 
+// @desc    Upload merchant images
+// @route   POST /api/v1/merchant/:id/upload
+// @access  Private (superadmin or merchant)
+const uploadMerchant = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const merchant = await Merchant.findByPk(id);
+    if (!merchant) throw new ApiError(404, 'Merchant not found');
+
+    // authorization: merchant owner (user_id) or superadmin
+    if (req.user.role !== 'superadmin' && req.user.id !== merchant.user_id) {
+        throw new ApiError(403, 'Not authorized to upload for this merchant');
+    }
+
+    const file = req.file;
+    if (!file) throw new ApiError(400, 'No file uploaded');
+
+    const url = file.path || file.secure_url || file.url || null;
+    if (!url) throw new ApiError(500, 'Uploaded file missing URL');
+
+    const uploads = Array.isArray(merchant.uploads) ? merchant.uploads.slice() : [];
+    uploads.push(url);
+    await merchant.update({ uploads });
+
+    res.status(200).json(new ApiResponse(200, { uploads: merchant.uploads }, 'File uploaded successfully'));
+});
+
 module.exports = {
     createMerchant,
     getAllMerchants,
@@ -156,4 +183,5 @@ module.exports = {
     updateMerchant,
     deleteMerchant,
     toggleMerchantStatus
+    , uploadMerchant
 };

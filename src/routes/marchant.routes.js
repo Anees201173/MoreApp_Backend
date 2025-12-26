@@ -11,6 +11,8 @@ const {
     deleteMerchant,
     toggleMerchantStatus
 } = require('../controllers/marchant.controller');
+const { single } = require('../middleware/multer');
+const { uploadMerchant } = require('../controllers/marchant.controller');
 
 // ===================== Validators ===================== //
 
@@ -81,5 +83,8 @@ router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleMerchant
 
 
 // ===================== Merchants Routes =================== // 
+
+// upload route
+router.post('/:id/upload', auth, authorize('superadmin', 'merchant'), single('image'), uploadMerchant);
 
 module.exports = router;

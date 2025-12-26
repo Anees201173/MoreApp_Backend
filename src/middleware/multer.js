@@ -1,18 +1,21 @@
-const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
 
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    // Store uploads for shipments in a dedicated folder and allow common image/PDF formats.
-    folder: "shipments_uploads",
-    // Use 'auto' so Cloudinary accepts images and PDFs
-    resource_type: "auto",
-    allowed_formats: ["jpg", "png", "jpeg", "webp", "svg", "pdf"],
-  },
+    folder:  'More App',
+    resource_type: 'auto',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'svg', 'pdf']
+  }
 });
 
 const upload = multer({ storage });
 
-module.exports = upload;
+module.exports = {
+  upload,
+  single: (fieldName = 'image') => upload.single(fieldName),
+  array: (fieldName = 'images', maxCount = 5) => upload.array(fieldName, maxCount),
+  fields: (fields = []) => upload.fields(fields)
+};
