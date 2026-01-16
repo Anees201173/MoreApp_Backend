@@ -55,11 +55,23 @@ const errorHandler = (err, req, res, next) => {
     error = new ApiError(400, message);
   }
 
-  res.status(error.statusCode || 500).json({
+  const statusCode = error.statusCode || 500;
+
+  const responseBody = {
     success: false,
     error: error.message || 'Server Error',
-    ...(config.nodeEnv === 'development' && { stack: err.stack })
-  });
+  };
+
+  // If this is an ApiError with attached data (e.g. express-validator errors), expose it
+  if (error.data) {
+    responseBody.errors = error.data;
+  }
+
+  if (config.nodeEnv === 'development') {
+    responseBody.stack = err.stack;
+  }
+
+  res.status(statusCode).json(responseBody);
 };
 
 module.exports = errorHandler;

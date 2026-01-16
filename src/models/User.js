@@ -99,20 +99,20 @@ const User = sequelize.define(
     },
 
     role: {
-      type: DataTypes.ENUM("superadmin", "companyadmin", "merchant", "user"), // --company_employee--
+      type: DataTypes.ENUM("superadmin", "companyadmin", "merchant", "user"),
       defaultValue: "user",
       allowNull: false,
     },
-    // company_id: {
-    //   type: DataTypes.INTEGER,
-    //   allowNull: true,
-    //   references: {
-    //     model: "companies",
-    //     key: "id",
-    //   },
-    //   onDelete: "SET NULL",
-    //   onUpdate: "CASCADE",
-    // },
+    company_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "companies",
+        key: "id",
+      },
+      onDelete: "SET NULL",
+      onUpdate: "CASCADE",
+    },
 
     is_active: {
       type: DataTypes.BOOLEAN,

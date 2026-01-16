@@ -9,6 +9,8 @@ const {
   toggleUserStatus,
   searchUsers,
   searchCustomers,
+  createCompanyEmployee,
+  getCompanyEmployees,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 const authorize = require("../middleware/authorize");
@@ -16,15 +18,16 @@ const authorize = require("../middleware/authorize");
 const router = express.Router();
 
 // Validation rules
+// Create user (admin-only) - aligned with User model and createUser controller
 const createUserValidation = [
-  body("first_name")
+  body("name")
     .trim()
     .isLength({ min: 2, max: 50 })
-    .withMessage("First name must be between 2 and 50 characters"),
-  body("last_name")
+    .withMessage("Name must be between 2 and 50 characters"),
+  body("username")
     .trim()
     .isLength({ min: 2, max: 50 })
-    .withMessage("Last name must be between 2 and 50 characters"),
+    .withMessage("Username must be between 2 and 50 characters"),
   body("email")
     .isEmail()
     .normalizeEmail()
@@ -38,8 +41,8 @@ const createUserValidation = [
     .withMessage("Please provide a valid phone number"),
   body("role")
     .optional()
-    .isIn(["admin", "member", "customer"])
-    .withMessage("Role must be admin, member, or customer"),
+    .isIn(["superadmin", "companyadmin", "merchant", "user"])
+    .withMessage("Role must be superadmin, companyadmin, merchant, or user"),
 ];
 
 const updateUserValidation = [
@@ -59,13 +62,54 @@ const updateUserValidation = [
     .withMessage("Please provide a valid phone number"),
 ];
 
+// Validation for company employee creation (company admin)
+const createEmployeeValidation = [
+  body("name")
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage("Name must be between 2 and 50 characters"),
+  body("email")
+    .isEmail()
+    .normalizeEmail()
+    .withMessage("Please provide a valid email"),
+  body("password")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters long"),
+  body("phone")
+    .optional()
+    .isMobilePhone()
+    .withMessage("Please provide a valid phone number"),
+  body("gender")
+    .optional()
+    .isIn(["male", "female"])
+    .withMessage("Gender must be either male or female"),
+];
+
 // Routes
 router.get("/", auth, authorize("superadmin"), getAllUsers);
-router.get("/:id", auth, getUserById);
 router.get("/search", auth, authorize("superadmin"), searchUsers);
+router.get(
+  "/employees",
+  auth,
+  authorize("superadmin", "companyadmin"),
+  getCompanyEmployees
+);
+router.get("/:id", auth, getUserById);
 //router.get("/search-customers", auth, authorize(""), searchCustomers); 
-// router.post("/", createUserValidation, createUser);
-router.put("/:id", auth, authorize("superadmin", "user"),  updateUser);
+
+// Admin-only user creation endpoint (used by SuperAdmin dashboard flows)
+router.post("/", auth, authorize("superadmin"), createUserValidation, createUser);
+
+// Company admin creates employees for their company
+router.post(
+  "/employees",
+  auth,
+  authorize("superadmin", "companyadmin"),
+  createEmployeeValidation,
+  createCompanyEmployee
+);
+
+router.put("/:id", auth, authorize("superadmin", "user"), updateUser);
 router.delete("/:id", auth, authorize("superadmin"), deleteUser);
 router.patch("/:id/toggle-status", auth, authorize("superadmin"), toggleUserStatus);
 

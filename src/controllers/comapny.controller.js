@@ -20,7 +20,7 @@ const createCompany = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Validation failed', errors.array());
   }
 
-  const { name, email, password, confirm_password, phone, address } = req.body;
+  const { name, email, password, confirm_password, phone, address, admin_id } = req.body;
 
   if (password !== confirm_password) {
     throw new ApiError(400, 'Password and confirm password must match');
@@ -31,7 +31,7 @@ const createCompany = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Company email already exists');
   }
 
-  const company = await Company.create({ name, email, password, phone, address });
+  const company = await Company.create({ name, email, password, phone, address, admin_id });
 
   res.status(201).json(new ApiResponse(201, { company: sanitizeCompany(company) }, 'Company created successfully'));
 });

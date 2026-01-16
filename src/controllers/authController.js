@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { User } = require("../models");
+const { User, Merchant, Company } = require("../models");
 const { validationResult } = require("express-validator");
 const config = require("../config/config");
 const asyncHandler = require("../utils/asyncHandler");
@@ -42,7 +42,6 @@ const register = asyncHandler(async (req, res) => {
   let user = await User.findByEmail(email);
 
   if (user) {
-    // If email exists but not verified, resend OTP
     if (!user.email_verified) {
       const otp = generateOTP(6).toUpperCase();
       const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -148,6 +147,24 @@ const login = asyncHandler(async (req, res) => {
     "refreshToken", // optional, if you store it in DB
   ]);
 
+  // Load related merchant/company profile if applicable
+  let merchant = null;
+  let company = null;
+
+  if (user.role === "merchant") {
+    merchant = await Merchant.findOne({
+      where: { user_id: user.id },
+      attributes: { exclude: ["password"] },
+    });
+  }
+
+  if (user.role === "companyadmin") {
+    company = await Company.findOne({
+      where: { admin_id: user.id },
+      attributes: { exclude: ["password"] },
+    });
+  }
+
   // Generate token
   const token = generateToken(user.id, user.role);
   // const refreshToken = generateRefreshToken(user.id);
@@ -157,7 +174,9 @@ const login = asyncHandler(async (req, res) => {
     new ApiResponse(
       200,
       {
-        sanitizedUser,
+        user: sanitizedUser,
+        merchant: merchant ? merchant.toJSON() : null,
+        company: company ? company.toJSON() : null,
         token,
         // refreshToken
       },

@@ -13,11 +13,19 @@ const notFoundHandler = require("./middleware/notFoundHandler");
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes')
-const comapnyRoutes = require('./routes/comapny.routes')
-const merchantRoutes = require('./routes/marchant.routes')
-const categoryRoutes = require('./routes/category.routes')
-const productRoutes = require('./routes/products.routes')
+const userRoutes = require('./routes/userRoutes');
+const comapnyRoutes = require('./routes/comapny.routes');
+const merchantRoutes = require('./routes/marchant.routes');
+const categoryRoutes = require('./routes/category.routes');
+const productRoutes = require('./routes/products.routes');
+const postRoutes = require('./routes/post.routes');
+const uploadRoutes = require('./routes/upload.routes');
+const fieldRoutes = require('./routes/field.routes');
+const fieldCategoryRoutes = require('./routes/fieldCategory.routes');
+const fieldBookingRoutes = require('./routes/fieldBooking.routes');
+const fieldSubscriptionRoutes = require('./routes/fieldSubscription.routes');
+const addonRoutes = require('./routes/addon.routes');
+const storeRoutes = require('./routes/store.routes');
 
 const app = express();
 
@@ -65,6 +73,14 @@ app.use('/api/v1/company', comapnyRoutes)
 app.use('/api/v1/merchant', merchantRoutes)
 app.use('/api/v1/category', categoryRoutes)
 app.use('/api/v1/products', productRoutes)
+app.use('/api/v1/posts', postRoutes)
+app.use('/api/v1/upload', uploadRoutes)
+app.use('/api/v1/fields', fieldRoutes)
+app.use('/api/v1/field-categories', fieldCategoryRoutes)
+app.use('/api/v1/field-bookings', fieldBookingRoutes)
+app.use('/api/v1/field-subscriptions', fieldSubscriptionRoutes)
+app.use('/api/v1/addons', addonRoutes)
+app.use('/api/v1/stores', storeRoutes)
 
 // 404 handler
 app.use(notFoundHandler);

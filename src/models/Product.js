@@ -3,6 +3,7 @@ const { sequelize } = require("../config/db");
 const Category = require("./Category");
 const User = require("./User");
 const Merchant = require("./Marchant");
+const Store = require("./Store");
 
 const Product = sequelize.define(
   "products",
@@ -105,6 +106,17 @@ const Product = sequelize.define(
       },
       onUpdate: "CASCADE",
       onDelete: "CASCADE",
+    },
+
+    store_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Store,
+        key: "id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
     },
 
     category_id: {

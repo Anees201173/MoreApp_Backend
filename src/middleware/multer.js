@@ -5,10 +5,23 @@ const cloudinary = require('../config/cloudinary');
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder:  'More App',
+    folder: 'More App',
     resource_type: 'auto',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'svg', 'pdf']
-  }
+    // Allow common image, document, and video formats
+    allowed_formats: [
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+      'svg',
+      'pdf',
+      'mp4',
+      'mov',
+      'avi',
+      'mkv',
+      'webm',
+    ],
+  },
 });
 
 const upload = multer({ storage });

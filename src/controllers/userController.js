@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, Company } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -67,7 +67,7 @@ const getUserById = asyncHandler(async (req, res) => {
   );
 });
 
-// @desc    Create new user
+// @desc    Create new user (superadmin-only generic user creation)
 // @route   POST /api/users
 // @access  Private (Admin)
 const createUser = asyncHandler(async (req, res) => {
@@ -92,11 +92,65 @@ const createUser = asyncHandler(async (req, res) => {
     email,
     password,
     phone,
-    role: role || 'member'
+    role: role || 'user'
   });
 
   res.status(201).json(
     new ApiResponse(201, { user }, 'User created successfully')
+  );
+});
+
+// @desc    Create company employee (companyadmin creates users with role 'user')
+// @route   POST /api/users/employees
+// @access  Private (companyadmin or superadmin)
+const createCompanyEmployee = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, 'Validation failed', errors.array());
+  }
+
+  const { name, email, password, phone, gender } = req.body;
+
+  // Determine company for this admin (or from query for superadmin)
+  let companyId = null;
+
+  if (req.user.role === 'companyadmin') {
+    const company = await Company.findOne({ where: { admin_id: req.user.id } });
+    if (!company) {
+      throw new ApiError(404, 'Company not found for this admin');
+    }
+    companyId = company.id;
+  } else if (req.user.role === 'superadmin' && req.body.company_id) {
+    companyId = req.body.company_id;
+  }
+
+  if (!companyId) {
+    throw new ApiError(400, 'Company context is required to create an employee');
+  }
+
+  const existingUser = await User.findByEmail(email);
+  if (existingUser) {
+    throw new ApiError(400, 'User already exists with this email');
+  }
+
+  const derivedUsername =
+    req.body.username ||
+    (email && email.split('@')[0]) ||
+    name;
+
+  const user = await User.create({
+    name,
+    username: derivedUsername,
+    email,
+    password,
+    phone,
+    gender: gender || 'male',
+    role: 'user',
+    company_id: companyId,
+  });
+
+  res.status(201).json(
+    new ApiResponse(201, { user }, 'Employee created successfully')
   );
 });
 
@@ -324,6 +378,46 @@ const searchUsers = asyncHandler(async (req, res) => {
 //   );
 // });
 
+// @desc    Get employees for a company admin
+// @route   GET /api/users/employees
+// @access  Private (companyadmin or superadmin)
+const getCompanyEmployees = asyncHandler(async (req, res) => {
+  const { page, size } = req.query;
+  const { limit, offset } = getPagination(page, size);
+
+  let whereClause = { role: 'user' };
+
+  let companyId = null;
+
+  if (req.user.role === 'companyadmin') {
+    const company = await Company.findOne({ where: { admin_id: req.user.id } });
+    if (!company) {
+      throw new ApiError(404, 'Company not found for this admin');
+    }
+    companyId = company.id;
+  } else if (req.user.role === 'superadmin' && req.query.company_id) {
+    companyId = req.query.company_id;
+  }
+
+  if (companyId) {
+    whereClause.company_id = companyId;
+  }
+
+  const data = await User.findAndCountAll({
+    where: whereClause,
+    limit,
+    offset,
+    order: [['id', 'DESC']],
+    attributes: { exclude: ['password'] },
+  });
+
+  const result = getPagingData(data, page, limit);
+
+  res.status(200).json(
+    new ApiResponse(200, result, 'Employees retrieved successfully')
+  );
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -332,6 +426,8 @@ module.exports = {
   deleteUser,
   toggleUserStatus,
   searchUsers,
+  createCompanyEmployee,
+  getCompanyEmployees,
   // searchCustomers
 
 };

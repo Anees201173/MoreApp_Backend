@@ -42,6 +42,9 @@ const createValidators = [
     body('address')
         .trim()
         .notEmpty().withMessage('Address is required'),
+    body('admin_id')
+        .optional()
+        .isInt().withMessage('Admin ID must be an integer')
 ];
 
 // update company validators 

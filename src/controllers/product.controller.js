@@ -45,6 +45,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
     images,
     uploads,
     category_id,
+    store_id,
   } = req.body;
 
   const finalTitle = title || name;
@@ -54,6 +55,16 @@ exports.createProduct = asyncHandler(async (req, res) => {
   const category = await Category.findByPk(category_id);
   if (!category || !category.status) {
     throw new ApiError(404, "Category not found or inactive");
+  }
+
+  // If store_id provided, validate store exists and belongs to this merchant
+  if (store_id) {
+    const Store = require('../models').Store;
+    const store = await Store.findByPk(store_id);
+    if (!store) throw new ApiError(404, 'Store not found');
+    if (store.merchant_id !== merchant.id) {
+      throw new ApiError(403, 'Store does not belong to this merchant');
+    }
   }
 
   // Avoid duplicate product title for same merchant
@@ -78,6 +89,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
     images: finalImages,
     category_id,
     merchant_id: merchant.id,
+    store_id: store_id || null,
   });
 
   res
@@ -97,7 +109,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
 // @access   Public (for ecommerce listing)
 // ----------------------------------------------------
 exports.getAllProducts = asyncHandler(async (req, res) => {
-  const { page, size, search, category_id, merchant_id, status } = req.query;
+  const { page, size, search, category_id, merchant_id, status, store_id } = req.query;
 
   const { limit, offset } = getPagination(page, size);
   const whereClause = {};
@@ -111,6 +123,7 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
 
   if (category_id) whereClause.category_id = category_id;
   if (merchant_id) whereClause.merchant_id = merchant_id;
+  if (store_id) whereClause.store_id = store_id;
   if (status !== undefined) whereClause.status = status === "true";
 
   const data = await Product.findAndCountAll({
@@ -118,6 +131,9 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
     limit,
     offset,
     order: [["id", "DESC"]],
+    include: [
+      { model: Category, as: 'category' },
+    ],
   });
 
   const result = getPagingData(data, page, limit);

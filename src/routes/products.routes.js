@@ -31,8 +31,9 @@ const createValidators = [
         .notEmpty().withMessage('Quantity is required')
         .isInt({ min: 0 }).withMessage('Quantity must be a positive integer'),
 
+    // category is picked implicitly on backend/frontend, not by user input
     body('category_id')
-        .notEmpty().withMessage('category_id is required')
+        .optional()
         .isInt().withMessage('category_id must be an integer'),
 
     body('size')
@@ -50,6 +51,9 @@ const createValidators = [
     body('images')
         .optional()
         .isArray().withMessage('Images should be an array of URLs'),
+    body('store_id')
+        .optional()
+        .isInt().withMessage('store_id must be an integer'),
 ];
 
 
@@ -97,7 +101,8 @@ const updateValidators = [
 
 // ===================== Product Routes ===================== //
 // Only Merchant can create products
-router.post('/', auth, authorize('merchant'), createValidators, createProduct);
+// Use multer array middleware so multipart/form-data body (text fields + images) is parsed
+router.post('/', auth, authorize('merchant'), array('images', 10), createValidators, createProduct);
 router.get('/', auth, getAllProducts);
 router.get('/:id', auth, getProductById);
 router.get('/user/:merchant_id', auth, getUserProduct)
