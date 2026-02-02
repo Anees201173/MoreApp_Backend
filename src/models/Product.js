@@ -13,7 +13,6 @@ const Product = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
-    
 
     title: {
       type: DataTypes.STRING(150),
@@ -133,7 +132,7 @@ const Product = sequelize.define(
   {
     tableName: "products",
     timestamps: true,
-  }
+  },
 );
 
 module.exports = Product;

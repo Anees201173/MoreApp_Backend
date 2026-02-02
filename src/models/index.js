@@ -4,6 +4,7 @@ const { sequelize } = require('../config/db');
 // Import all models
 const Field = require('./Field')
 const FieldCategory = require('./FieldCategory')
+const FieldAvailability = require('./FieldAvailability')
 const FieldBooking = require('./FieldBooking')
 const FieldSubscription = require('./FieldSubscription')
 const Addon = require('./Addon')
@@ -90,6 +91,21 @@ const defineAssociations = () => {
   Field.belongsTo(FieldCategory, {
     foreignKey: 'field_category_id',
     as: 'fieldCategory',
+  });
+
+  // =======================================================
+  //   FIELD <-> AVAILABILITIES (weekly opening hours)
+  // =======================================================
+  Field.hasMany(FieldAvailability, {
+    foreignKey: 'field_id',
+    as: 'availabilities',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  FieldAvailability.belongsTo(Field, {
+    foreignKey: 'field_id',
+    as: 'field',
   });
 
   // =======================================================
@@ -331,6 +347,7 @@ module.exports = {
   PostRepost,
   Field,
   FieldCategory,
+  FieldAvailability,
   FieldBooking,
   FieldSubscription,
   Addon,

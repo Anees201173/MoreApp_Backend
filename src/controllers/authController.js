@@ -16,7 +16,7 @@ const generateToken = (userId, role) => {
   });
 };
 
-// @desc    Register a new user
+// @desc    Register a new user (no OTP flow, direct registration)
 // @route   POST /api/v1/auth/register
 // @access  Public
 const register = asyncHandler(async (req, res) => {
@@ -38,32 +38,9 @@ const register = asyncHandler(async (req, res) => {
     city,
   } = req.body;
 
-  // Check if email exists
-  let user = await User.findByEmail(email);
-
-  if (user) {
-    if (!user.email_verified) {
-      const otp = generateOTP(6).toUpperCase();
-      const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      user.otp = otp;
-      user.otpType = "register";
-      user.otpExpires = otpExpires;
-      await user.save();
-
-      console.log(`Resent OTP for ${email}: ${otp}`);
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(
-            200,
-            { email: user.email },
-            `Registration OTP resent to ${email}. Verify to complete registration`
-          )
-        );
-    }
-
-    // If email exists and verified, reject
+  // Check if email already exists
+  const existingEmailUser = await User.findByEmail(email);
+  if (existingEmailUser) {
     throw new ApiError(400, "User already exists with this email");
   }
 
@@ -73,12 +50,8 @@ const register = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Username taken, choose another username");
   }
 
-  // Generate OTP for new user
-  const otp = generateOTP(6).toUpperCase();
-  const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-  // Create new user (unverified)
-  user = await User.create({
+  // Create new user directly as verified (no OTP)
+  const user = await User.create({
     name,
     username,
     email,
@@ -88,22 +61,29 @@ const register = asyncHandler(async (req, res) => {
     gender,
     country,
     city,
-    email_verified: false,
-    otp: otp,
-    otpType: "register",
-    otpExpires: otpExpires,
+    email_verified: true,
   });
 
-  console.log(`OTP for ${email}: ${otp}`);
-  res
-    .status(201)
-    .json(
-      new ApiResponse(
-        201,
-        { email: user.email },
-        `Registration OTP sent to ${email}. Verify to complete registration`
-      )
-    );
+  const sanitizedUser = sanitizeObject(user.toJSON(), [
+    "password",
+    "otp",
+    "otpExpires",
+    "otpType",
+    "refreshToken",
+  ]);
+
+  const token = generateToken(user.id, user.role);
+
+  res.status(201).json(
+    new ApiResponse(
+      201,
+      {
+        user: sanitizedUser,
+        token,
+      },
+      "User registered successfully",
+    ),
+  );
 });
 
 // @desc    Login user
@@ -180,8 +160,8 @@ const login = asyncHandler(async (req, res) => {
         token,
         // refreshToken
       },
-      "Login successful"
-    )
+      "Login successful",
+    ),
   );
 });
 
@@ -190,6 +170,9 @@ const login = asyncHandler(async (req, res) => {
 // @access  Private
 const getProfile = asyncHandler(async (req, res) => {
   const user = await User.findByPk(req.user.id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
   // Sanitize user object before sending
   const sanitizedUser = sanitizeObject(user.toJSON(), [
@@ -200,15 +183,43 @@ const getProfile = asyncHandler(async (req, res) => {
     "refreshToken", // optional, if you store it in DB
   ]);
 
-  if (!user) {
-    throw new ApiError(404, "User not found");
+  // Load related merchant/company profile if applicable
+  let merchant = null;
+  let company = null;
+
+  if (user.role === "merchant") {
+    merchant = await Merchant.findOne({
+      where: { user_id: user.id },
+      attributes: { exclude: ["password"] },
+    });
   }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, { sanitizedUser }, "Profile retrieved successfully")
-    );
+  if (user.role === "companyadmin") {
+    company = await Company.findOne({
+      where: { admin_id: user.id },
+      attributes: { exclude: ["password"] },
+    });
+  }
+
+  // If normal user belongs to a company (employee), include that company too
+  if (!company && user.role === "user" && user.company_id) {
+    company = await Company.findByPk(user.company_id, {
+      attributes: { exclude: ["password"] },
+    });
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        user: sanitizedUser,
+        sanitizedUser,
+        merchant: merchant ? merchant.toJSON() : null,
+        company: company ? company.toJSON() : null,
+      },
+      "Profile retrieved successfully",
+    ),
+  );
 });
 
 // @desc    Update user profile

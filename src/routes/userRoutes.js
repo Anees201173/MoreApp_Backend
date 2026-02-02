@@ -3,6 +3,7 @@ const { body } = require("express-validator");
 const {
   getAllUsers,
   getUserById,
+  getMyProfile,
   createUser,
   updateUser,
   deleteUser,
@@ -94,6 +95,7 @@ router.get(
   authorize("superadmin", "companyadmin"),
   getCompanyEmployees
 );
+router.get("/me", auth, getMyProfile);
 router.get("/:id", auth, getUserById);
 //router.get("/search-customers", auth, authorize(""), searchCustomers); 
 

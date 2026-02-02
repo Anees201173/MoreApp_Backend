@@ -1,4 +1,4 @@
-const { User, Company } = require('../models');
+const { User, Company, Merchant } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -64,6 +64,54 @@ const getUserById = asyncHandler(async (req, res) => {
 
   res.status(200).json(
     new ApiResponse(200, { user }, 'User retrieved successfully')
+  );
+});
+
+// @desc    Get my profile (based on token)
+// @route   GET /api/v1/user/me
+// @access  Private
+const getMyProfile = asyncHandler(async (req, res) => {
+  const user = await User.findByPk(req.user.id, {
+    attributes: { exclude: ['password'] },
+  });
+
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  let merchant = null;
+  let company = null;
+
+  if (user.role === 'merchant') {
+    merchant = await Merchant.findOne({
+      where: { user_id: user.id },
+      attributes: { exclude: ['password'] },
+    });
+  }
+
+  if (user.role === 'companyadmin') {
+    company = await Company.findOne({
+      where: { admin_id: user.id },
+      attributes: { exclude: ['password'] },
+    });
+  }
+
+  if (!company && user.role === 'user' && user.company_id) {
+    company = await Company.findByPk(user.company_id, {
+      attributes: { exclude: ['password'] },
+    });
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        user,
+        merchant: merchant ? merchant.toJSON() : null,
+        company: company ? company.toJSON() : null,
+      },
+      'Profile retrieved successfully'
+    )
   );
 });
 
@@ -421,6 +469,7 @@ const getCompanyEmployees = asyncHandler(async (req, res) => {
 module.exports = {
   getAllUsers,
   getUserById,
+  getMyProfile,
   createUser,
   updateUser,
   deleteUser,

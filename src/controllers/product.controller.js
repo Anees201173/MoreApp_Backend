@@ -224,6 +224,63 @@ exports.getUserProduct = asyncHandler(async (req, res) => {
 });
 
 // ----------------------------------------------------
+// @desc     Get products of the currently authenticated merchant
+// @route    GET /api/v1/products/user/me
+// @access   Private (Merchant)
+// ----------------------------------------------------
+exports.getMyProducts = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'merchant') {
+    throw new ApiError(403, 'Only merchants can access their products');
+  }
+
+  const { page, size, search, category_id, status } = req.query;
+  const { limit, offset } = getPagination(page, size);
+
+  const merchant = await Merchant.findOne({ where: { user_id: req.user.id } });
+  if (!merchant) {
+    throw new ApiError(404, 'Merchant profile not found for current user');
+  }
+
+  const whereClause = { merchant_id: merchant.id };
+
+  if (search) {
+    whereClause[Op.or] = [
+      { title: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
+
+  if (category_id) whereClause.category_id = category_id;
+  if (status !== undefined) whereClause.status = status === 'true';
+
+  const data = await Product.findAndCountAll({
+    where: whereClause,
+    limit,
+    offset,
+    order: [['id', 'DESC']],
+  });
+
+  const result = getPagingData(data, page, limit);
+  result.items = result.items.map(sanitizeProduct);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        merchant: {
+          id: merchant.id,
+          user_id: merchant.user_id,
+          owner_name: req.user.name || null,
+          owner_username: req.user.username || null,
+        },
+        ...result,
+      },
+      'My products retrieved successfully'
+    )
+  );
+});
+
+// ----------------------------------------------------
 // @desc     Update Product
 // @route    PUT /api/v1/products/:id
 // @access   Private (Merchant only, must own the product)

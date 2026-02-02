@@ -55,6 +55,21 @@ exports.getStores = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { items }, 'Stores retrieved'));
 });
 
+// Get stores for current merchant user
+exports.getMyStores = asyncHandler(async (req, res) => {
+  const merchant = await Merchant.findOne({ where: { user_id: req.user.id } });
+  if (!merchant) {
+    throw new ApiError(404, 'Merchant profile not found for current user');
+  }
+
+  const items = await Store.findAll({
+    where: { merchant_id: merchant.id },
+    order: [['createdAt', 'DESC']],
+  });
+
+  res.status(200).json(new ApiResponse(200, { items }, 'My stores retrieved'));
+});
+
 // Get single store
 exports.getStore = asyncHandler(async (req, res) => {
   const { id } = req.params;

@@ -1,7 +1,9 @@
 // Get pagination parameters
 const getPagination = (page, size) => {
-    const limit = size ? +size : 10;
-    const offset = page ? page * limit : 0;
+    const limit = size ? Number(size) : 10;
+    const pageNumber = page !== undefined && page !== null ? parseInt(page, 10) : NaN;
+    const safePage = Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1;
+    const offset = (safePage - 1) * limit;
 
     return { limit, offset };
 };
@@ -9,7 +11,8 @@ const getPagination = (page, size) => {
 // Get paging data for response
 const getPagingData = (data, page, limit) => {
     const { count: totalItems, rows: items } = data;
-    const currentPage = page ? +page : 0;
+    const pageNumber = page !== undefined && page !== null ? parseInt(page, 10) : NaN;
+    const currentPage = Number.isFinite(pageNumber) && pageNumber > 0 ? pageNumber : 1;
     const totalPages = Math.ceil(totalItems / limit);
 
     return {
@@ -19,8 +22,8 @@ const getPagingData = (data, page, limit) => {
             totalPages,
             currentPage,
             pageSize: limit,
-            hasNextPage: currentPage < totalPages - 1,
-            hasPrevPage: currentPage > 0
+            hasNextPage: currentPage < totalPages,
+            hasPrevPage: currentPage > 1
         }
     };
 };

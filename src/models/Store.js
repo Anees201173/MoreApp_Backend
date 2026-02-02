@@ -1,9 +1,9 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const Merchant = require('./Marchant');
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../config/db");
+const Merchant = require("./Marchant");
 
 const Store = sequelize.define(
-  'stores',
+  "stores",
   {
     id: {
       type: DataTypes.INTEGER,
@@ -14,8 +14,11 @@ const Store = sequelize.define(
       type: DataTypes.STRING(150),
       allowNull: false,
       validate: {
-        notEmpty: { msg: 'Store name is required' },
-        len: { args: [2, 150], msg: 'Store name must be between 2 and 150 characters' },
+        notEmpty: { msg: "Store name is required" },
+        len: {
+          args: [2, 150],
+          msg: "Store name must be between 2 and 150 characters",
+        },
       },
     },
     description: {
@@ -31,10 +34,10 @@ const Store = sequelize.define(
       allowNull: false,
       references: {
         model: Merchant,
-        key: 'id',
+        key: "id",
       },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
     },
     is_active: {
       type: DataTypes.BOOLEAN,
@@ -43,9 +46,9 @@ const Store = sequelize.define(
     },
   },
   {
-    tableName: 'stores',
+    tableName: "stores",
     timestamps: true,
-  }
+  },
 );
 
 module.exports = Store;

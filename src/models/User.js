@@ -158,7 +158,7 @@ const User = sequelize.define(
         }
       },
     },
-  }
+  },
 );
 
 // Instance methods
