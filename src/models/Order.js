@@ -1,23 +1,13 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const FieldSubscription = sequelize.define(
-  'field_subscriptions',
+const Order = sequelize.define(
+  'orders',
   {
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
-    },
-    field_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'fields',
-        key: 'id',
-      },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
     },
     user_id: {
       type: DataTypes.INTEGER,
@@ -29,48 +19,51 @@ const FieldSubscription = sequelize.define(
       onUpdate: 'CASCADE',
       onDelete: 'CASCADE',
     },
-    type: {
-      type: DataTypes.ENUM('monthly', 'quarterly', 'yearly'),
+    merchant_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 'monthly',
+      references: {
+        model: 'merchants',
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
     },
-    plan_id: {
+    store_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
       references: {
-        model: 'field_subscription_plans',
+        model: 'stores',
         key: 'id',
       },
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL',
     },
-    price: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: true,
+    status: {
+      type: DataTypes.ENUM('pending', 'paid', 'cancelled', 'completed'),
+      allowNull: false,
+      defaultValue: 'pending',
     },
     currency: {
       type: DataTypes.STRING(10),
       allowNull: false,
       defaultValue: 'SAR',
     },
-    start_date: {
-      type: DataTypes.DATEONLY,
+    subtotal: {
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
+      defaultValue: 0,
     },
-    end_date: {
-      type: DataTypes.DATEONLY,
+    total: {
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
-    },
-    status: {
-      type: DataTypes.ENUM('active', 'cancelled', 'expired'),
-      allowNull: false,
-      defaultValue: 'active',
+      defaultValue: 0,
     },
   },
   {
-    tableName: 'field_subscriptions',
+    tableName: 'orders',
     timestamps: true,
   }
 );
 
-module.exports = FieldSubscription;
+module.exports = Order;

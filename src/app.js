@@ -20,12 +20,16 @@ const categoryRoutes = require('./routes/category.routes');
 const productRoutes = require('./routes/products.routes');
 const postRoutes = require('./routes/post.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
 const fieldRoutes = require('./routes/field.routes');
 const fieldCategoryRoutes = require('./routes/fieldCategory.routes');
 const fieldBookingRoutes = require('./routes/fieldBooking.routes');
 const fieldSubscriptionRoutes = require('./routes/fieldSubscription.routes');
+const subscriptionPlanRoutes = require('./routes/subscriptionPlan.routes');
 const addonRoutes = require('./routes/addon.routes');
 const storeRoutes = require('./routes/store.routes');
+const cartRoutes = require('./routes/cart.routes');
+const ordersRoutes = require('./routes/orders.routes');
 
 const app = express();
 
@@ -75,12 +79,16 @@ app.use('/api/v1/category', categoryRoutes)
 app.use('/api/v1/products', productRoutes)
 app.use('/api/v1/posts', postRoutes)
 app.use('/api/v1/upload', uploadRoutes)
+app.use('/api/v1/dashboard', dashboardRoutes)
 app.use('/api/v1/fields', fieldRoutes)
 app.use('/api/v1/field-categories', fieldCategoryRoutes)
 app.use('/api/v1/field-bookings', fieldBookingRoutes)
 app.use('/api/v1/field-subscriptions', fieldSubscriptionRoutes)
+app.use('/api/v1/subscription-plans', subscriptionPlanRoutes)
 app.use('/api/v1/addons', addonRoutes)
 app.use('/api/v1/stores', storeRoutes)
+app.use('/api/v1/cart', cartRoutes)
+app.use('/api/v1/orders', ordersRoutes)
 
 // 404 handler
 app.use(notFoundHandler);
@@ -124,6 +132,10 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
-startServer();
+// Only start the HTTP server when this file is executed directly.
+// When imported (e.g. by Jest/Supertest), we export the Express app without listening.
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;

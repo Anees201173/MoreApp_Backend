@@ -13,6 +13,13 @@ const {
 } = require('../controllers/marchant.controller');
 const { single } = require('../middleware/multer');
 const { uploadMerchant } = require('../controllers/marchant.controller');
+const {
+    getFieldAvailability,
+    setFieldAvailability,
+    getFieldClosures,
+    addFieldClosure,
+    deleteFieldClosure
+} = require('../controllers/fieldAvailability.controller');
 
 // ===================== Validators ===================== //
 
@@ -86,5 +93,13 @@ router.patch('/:id/toggle-status', auth, authorize('superadmin'), toggleMerchant
 
 // upload route
 router.post('/:id/upload', auth, authorize('superadmin', 'merchant'), single('image'), uploadMerchant);
+
+// ===================== Merchant Field Availability ===================== //
+// Alias endpoints for merchant panel (canonical endpoints live under /api/v1/fields)
+router.get('/fields/:id/availability', auth, authorize('superadmin', 'merchant'), getFieldAvailability);
+router.put('/fields/:id/availability', auth, authorize('superadmin', 'merchant'), setFieldAvailability);
+router.get('/fields/:id/closures', auth, authorize('superadmin', 'merchant'), getFieldClosures);
+router.post('/fields/:id/closures', auth, authorize('superadmin', 'merchant'), addFieldClosure);
+router.delete('/fields/:id/closures/:date', auth, authorize('superadmin', 'merchant'), deleteFieldClosure);
 
 module.exports = router;

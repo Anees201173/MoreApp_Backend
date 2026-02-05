@@ -113,6 +113,6 @@ router.post(
 
 router.put("/:id", auth, authorize("superadmin", "user"), updateUser);
 router.delete("/:id", auth, authorize("superadmin"), deleteUser);
-router.patch("/:id/toggle-status", auth, authorize("superadmin"), toggleUserStatus);
+router.patch("/:id/toggle-status", auth, authorize("superadmin", "companyadmin"), toggleUserStatus);
 
 module.exports = router;

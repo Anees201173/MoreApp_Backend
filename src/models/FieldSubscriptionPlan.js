@@ -1,8 +1,8 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const FieldSubscription = sequelize.define(
-  'field_subscriptions',
+const FieldSubscriptionPlan = sequelize.define(
+  'field_subscription_plans',
   {
     id: {
       type: DataTypes.INTEGER,
@@ -19,58 +19,57 @@ const FieldSubscription = sequelize.define(
       onUpdate: 'CASCADE',
       onDelete: 'CASCADE',
     },
-    user_id: {
+    merchant_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'users',
+        model: 'merchants',
         key: 'id',
       },
       onUpdate: 'CASCADE',
       onDelete: 'CASCADE',
     },
+    title: {
+      type: DataTypes.STRING(150),
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     type: {
       type: DataTypes.ENUM('monthly', 'quarterly', 'yearly'),
       allowNull: false,
-      defaultValue: 'monthly',
-    },
-    plan_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'field_subscription_plans',
-        key: 'id',
-      },
-      onUpdate: 'CASCADE',
-      onDelete: 'SET NULL',
     },
     price: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: true,
+      allowNull: false,
     },
     currency: {
       type: DataTypes.STRING(10),
       allowNull: false,
       defaultValue: 'SAR',
     },
-    start_date: {
-      type: DataTypes.DATEONLY,
-      allowNull: false,
+    features: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: [],
     },
-    end_date: {
-      type: DataTypes.DATEONLY,
+    visibility: {
+      type: DataTypes.ENUM('public', 'private'),
       allowNull: false,
+      defaultValue: 'public',
     },
-    status: {
-      type: DataTypes.ENUM('active', 'cancelled', 'expired'),
+    is_active: {
+      type: DataTypes.BOOLEAN,
       allowNull: false,
-      defaultValue: 'active',
+      defaultValue: true,
     },
   },
   {
-    tableName: 'field_subscriptions',
+    tableName: 'field_subscription_plans',
     timestamps: true,
   }
 );
 
-module.exports = FieldSubscription;
+module.exports = FieldSubscriptionPlan;

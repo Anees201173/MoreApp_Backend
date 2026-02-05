@@ -280,6 +280,22 @@ const toggleUserStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Cannot deactivate your own account');
   }
 
+  // Company admin can only toggle employees in their own company
+  if (req.user.role === 'companyadmin') {
+    const company = await Company.findOne({ where: { admin_id: req.user.id } });
+    if (!company) {
+      throw new ApiError(404, 'Company not found for this admin');
+    }
+
+    if (user.role !== 'user') {
+      throw new ApiError(403, 'You can only enable/disable employees');
+    }
+
+    if (!user.company_id || Number(user.company_id) !== Number(company.id)) {
+      throw new ApiError(403, 'You can only enable/disable employees in your company');
+    }
+  }
+
   await user.update({ is_active: !user.is_active });
 
   // Sanitize user object before sending
@@ -297,7 +313,7 @@ const toggleUserStatus = asyncHandler(async (req, res) => {
     new ApiResponse(
       200,
       {sanitizedUser },
-      `User status set to ${user.is_active ? true : false} successfully`
+      `User status set to ${user.is_active ? 'active' : 'disabled'} successfully`
     )
   );
 });
@@ -430,7 +446,7 @@ const searchUsers = asyncHandler(async (req, res) => {
 // @route   GET /api/users/employees
 // @access  Private (companyadmin or superadmin)
 const getCompanyEmployees = asyncHandler(async (req, res) => {
-  const { page, size } = req.query;
+  const { page, size, is_active } = req.query;
   const { limit, offset } = getPagination(page, size);
 
   let whereClause = { role: 'user' };
@@ -449,6 +465,10 @@ const getCompanyEmployees = asyncHandler(async (req, res) => {
 
   if (companyId) {
     whereClause.company_id = companyId;
+  }
+
+  if (is_active !== undefined) {
+    whereClause.is_active = String(is_active) === 'true';
   }
 
   const data = await User.findAndCountAll({

@@ -5,8 +5,10 @@ const { sequelize } = require('../config/db');
 const Field = require('./Field')
 const FieldCategory = require('./FieldCategory')
 const FieldAvailability = require('./FieldAvailability')
+const FieldClosure = require('./FieldClosure')
 const FieldBooking = require('./FieldBooking')
 const FieldSubscription = require('./FieldSubscription')
+const FieldSubscriptionPlan = require('./FieldSubscriptionPlan')
 const Addon = require('./Addon')
 const User = require('./User')
 const Company = require('./Company')
@@ -14,6 +16,10 @@ const Merchant = require('./Marchant')
 const Category = require('./Category')
 const Product = require('./Product')
 const Store = require('./Store')
+const Cart = require('./Cart')
+const CartItem = require('./CartItem')
+const Order = require('./Order')
+const OrderItem = require('./OrderItem')
 const Post = require('./Post')
 const PostLike = require('./PostLike')
 const PostRepost = require('./PostRepost')
@@ -79,6 +85,33 @@ const defineAssociations = () => {
   });
 
   // =======================================================
+  //   FIELD <-> SUBSCRIPTION PLANS (merchant-defined pricing)
+  // =======================================================
+  Merchant.hasMany(FieldSubscriptionPlan, {
+    foreignKey: 'merchant_id',
+    as: 'subscriptionPlans',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  FieldSubscriptionPlan.belongsTo(Merchant, {
+    foreignKey: 'merchant_id',
+    as: 'merchant',
+  });
+
+  Field.hasMany(FieldSubscriptionPlan, {
+    foreignKey: 'field_id',
+    as: 'subscriptionPlans',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  FieldSubscriptionPlan.belongsTo(Field, {
+    foreignKey: 'field_id',
+    as: 'field',
+  });
+
+  // =======================================================
   //   FIELD CATEGORY <-> FIELDS
   // =======================================================
   FieldCategory.hasMany(Field, {
@@ -104,6 +137,21 @@ const defineAssociations = () => {
   });
 
   FieldAvailability.belongsTo(Field, {
+    foreignKey: 'field_id',
+    as: 'field',
+  });
+
+  // =======================================================
+  //   FIELD <-> CLOSURES (specific date closures)
+  // =======================================================
+  Field.hasMany(FieldClosure, {
+    foreignKey: 'field_id',
+    as: 'closures',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  FieldClosure.belongsTo(Field, {
     foreignKey: 'field_id',
     as: 'field',
   });
@@ -268,6 +316,18 @@ const defineAssociations = () => {
     as: 'user',
   });
 
+  FieldSubscriptionPlan.hasMany(FieldSubscription, {
+    foreignKey: 'plan_id',
+    as: 'subscriptions',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  FieldSubscription.belongsTo(FieldSubscriptionPlan, {
+    foreignKey: 'plan_id',
+    as: 'plan',
+  });
+
   // =======================================================
   //   FIELD <-> ADDONS
   // =======================================================
@@ -325,6 +385,108 @@ const defineAssociations = () => {
     foreignKey: 'store_id',
     as: 'store',
   });
+
+  // =======================================================
+  //   USER <-> CARTS / CART ITEMS
+  // =======================================================
+  User.hasMany(Cart, {
+    foreignKey: 'user_id',
+    as: 'carts',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  Cart.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user',
+  });
+
+  Cart.hasMany(CartItem, {
+    foreignKey: 'cart_id',
+    as: 'items',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  CartItem.belongsTo(Cart, {
+    foreignKey: 'cart_id',
+    as: 'cart',
+  });
+
+  Product.hasMany(CartItem, {
+    foreignKey: 'product_id',
+    as: 'cartItems',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  CartItem.belongsTo(Product, {
+    foreignKey: 'product_id',
+    as: 'product',
+  });
+
+  // =======================================================
+  //   USER/MERCHANT/STORE <-> ORDERS / ORDER ITEMS
+  // =======================================================
+  User.hasMany(Order, {
+    foreignKey: 'user_id',
+    as: 'orders',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  Order.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user',
+  });
+
+  Merchant.hasMany(Order, {
+    foreignKey: 'merchant_id',
+    as: 'orders',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  Order.belongsTo(Merchant, {
+    foreignKey: 'merchant_id',
+    as: 'merchant',
+  });
+
+  Store.hasMany(Order, {
+    foreignKey: 'store_id',
+    as: 'orders',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  Order.belongsTo(Store, {
+    foreignKey: 'store_id',
+    as: 'store',
+  });
+
+  Order.hasMany(OrderItem, {
+    foreignKey: 'order_id',
+    as: 'items',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  OrderItem.belongsTo(Order, {
+    foreignKey: 'order_id',
+    as: 'order',
+  });
+
+  Product.hasMany(OrderItem, {
+    foreignKey: 'product_id',
+    as: 'orderItems',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  OrderItem.belongsTo(Product, {
+    foreignKey: 'product_id',
+    as: 'product',
+  });
 };
 
 
@@ -348,8 +510,14 @@ module.exports = {
   Field,
   FieldCategory,
   FieldAvailability,
+  FieldClosure,
   FieldBooking,
   FieldSubscription,
+  FieldSubscriptionPlan,
   Addon,
   Store,
+  Cart,
+  CartItem,
+  Order,
+  OrderItem,
 };

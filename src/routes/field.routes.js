@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { createField, getFields, getFieldsByCategory, getField, updateField, deleteField } = require('../controllers/field.controller');
-const { getFieldAvailability, setFieldAvailability } = require('../controllers/fieldAvailability.controller');
+const {
+	getFieldAvailability,
+	setFieldAvailability,
+	getFieldClosures,
+	addFieldClosure,
+	deleteFieldClosure,
+} = require('../controllers/fieldAvailability.controller');
 const auth = require('../middleware/auth');
 const { single } = require('../middleware/multer');
 
@@ -11,6 +17,9 @@ router.get('/filter', auth, getFields);
 router.get('/category/:field_category_id', auth, getFieldsByCategory);
 router.get('/:id/availability', auth, getFieldAvailability);
 router.put('/:id/availability', auth, setFieldAvailability);
+router.get('/:id/closures', auth, getFieldClosures);
+router.post('/:id/closures', auth, addFieldClosure);
+router.delete('/:id/closures/:date', auth, deleteFieldClosure);
 router.get('/:id', auth, getField);
 
 // Protected routes (merchant or admin)

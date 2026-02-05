@@ -5,7 +5,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
 
-// Resolve company context for the current user
+// Resolve company context for the current user (strict – used for mutations)
 async function resolveCompanyId(req) {
   // companyadmin → company where admin_id = user.id
   if (req.user.role === "companyadmin") {
@@ -21,14 +21,55 @@ async function resolveCompanyId(req) {
     return req.user.company_id;
   }
 
-  // superadmin can specify company_id explicitly
-  if (req.user.role === "superadmin" && req.body.company_id) {
-    return req.body.company_id;
+  // superadmin can specify company_id explicitly (query or body)
+  if (req.user.role === "superadmin") {
+    if (req.query.company_id) {
+      return req.query.company_id;
+    }
+    if (req.body && req.body.company_id) {
+      return req.body.company_id;
+    }
   }
 
   throw new ApiError(
     400,
     "Company context is required to create or view posts"
+  );
+}
+
+// Resolve company context for read-only queries.
+// For superadmin, if no company_id is provided, this will return null
+// which callers can interpret as "all companies".
+async function resolveCompanyIdForQuery(req) {
+  // companyadmin → company where admin_id = user.id
+  if (req.user.role === "companyadmin") {
+    const company = await Company.findOne({ where: { admin_id: req.user.id } });
+    if (!company) {
+      throw new ApiError(404, "Company not found for this admin");
+    }
+    return company.id;
+  }
+
+  // employee user with company_id
+  if (req.user.role === "user" && req.user.company_id) {
+    return req.user.company_id;
+  }
+
+  // superadmin can specify company_id explicitly (query or body)
+  if (req.user.role === "superadmin") {
+    if (req.query.company_id) {
+      return req.query.company_id;
+    }
+    if (req.body && req.body.company_id) {
+      return req.body.company_id;
+    }
+    // no specific company → global scope
+    return null;
+  }
+
+  throw new ApiError(
+    400,
+    "Company context is required to view posts"
   );
 }
 
@@ -86,10 +127,13 @@ const createPost = asyncHandler(async (req, res) => {
 // @route   GET /api/v1/posts
 // @access  Private (superadmin, companyadmin, user-with-company)
 const getCompanyPosts = asyncHandler(async (req, res) => {
-  const companyId = await resolveCompanyId(req);
+  const companyId = await resolveCompanyIdForQuery(req);
   const { status } = req.query;
 
-  const where = { company_id: companyId };
+  const where = {};
+  if (companyId) {
+    where.company_id = companyId;
+  }
   if (status) {
     where.status = status;
   }
@@ -118,11 +162,16 @@ const getCompanyPosts = asyncHandler(async (req, res) => {
 // @route   GET /api/v1/posts/insights
 // @access  Private (superadmin, companyadmin, user-with-company)
 const getCompanyPostInsights = asyncHandler(async (req, res) => {
-  const companyId = await resolveCompanyId(req);
+  const companyId = await resolveCompanyIdForQuery(req);
 
   // Basic totals
+  const postWhere = {};
+  if (companyId) {
+    postWhere.company_id = companyId;
+  }
+
   const [totalPosts, totalLikes, totalReposts] = await Promise.all([
-    Post.count({ where: { company_id: companyId } }),
+    Post.count({ where: postWhere }),
     PostLike.count({
       include: [
         {
@@ -130,7 +179,7 @@ const getCompanyPostInsights = asyncHandler(async (req, res) => {
           as: "post",
           required: true,
           attributes: [],
-          where: { company_id: companyId },
+          where: companyId ? { company_id: companyId } : undefined,
         },
       ],
     }),
@@ -141,7 +190,7 @@ const getCompanyPostInsights = asyncHandler(async (req, res) => {
           as: "post",
           required: true,
           attributes: [],
-          where: { company_id: companyId },
+          where: companyId ? { company_id: companyId } : undefined,
         },
       ],
     }),
@@ -158,7 +207,7 @@ const getCompanyPostInsights = asyncHandler(async (req, res) => {
         as: "post",
         required: true,
         attributes: [],
-        where: { company_id: companyId },
+        where: companyId ? { company_id: companyId } : undefined,
       },
     ],
     attributes: [
@@ -183,7 +232,7 @@ const getCompanyPostInsights = asyncHandler(async (req, res) => {
         as: "post",
         required: true,
         attributes: [],
-        where: { company_id: companyId },
+        where: companyId ? { company_id: companyId } : undefined,
       },
     ],
     attributes: [
