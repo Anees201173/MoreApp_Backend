@@ -56,12 +56,25 @@ module.exports = {
   cors: {
     origin: (() => {
       const raw = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
-      if (raw) {
-        if (raw.includes(',')) return raw.split(',').map((o) => o.trim()).filter(Boolean);
-        return raw.trim();
-      }
+      const defaults = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5175',
+        'https://more-app-dashboard.vercel.app'
+      ];
 
-      return ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
+      if (!raw) return defaults;
+
+      const normalized = raw.trim();
+      if (normalized === '*') return '*';
+
+      const fromEnv = normalized
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+
+      // Ensure the deployed dashboard is allowed even if env is set.
+      return Array.from(new Set([...fromEnv, ...defaults]));
     })(),
     credentials: true
   },
