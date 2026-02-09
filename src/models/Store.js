@@ -1,6 +1,7 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
 const Merchant = require("./Marchant");
+const Category = require("./Category");
 
 const Store = sequelize.define(
   "stores",
@@ -38,6 +39,16 @@ const Store = sequelize.define(
       },
       onUpdate: "CASCADE",
       onDelete: "CASCADE",
+    },
+    category_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: Category,
+        key: "id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
     },
     is_active: {
       type: DataTypes.BOOLEAN,

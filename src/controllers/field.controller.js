@@ -128,8 +128,19 @@ exports.createField = asyncHandler(async (req, res) => {
 
 // Get fields with optional filtering
 exports.getFields = asyncHandler(async (req, res) => {
-  const { merchant_id, city, field_category_id, min_price, max_price, page, size } = req.query;
+  const {
+    merchant_id,
+    city,
+    field_category_id,
+    min_price,
+    max_price,
+    page,
+    size,
+    name,
+  } = req.query;
   const where = {};
+
+  const normalizedName = name !== undefined && name !== null ? String(name).trim() : '';
 
   // If a merchant is authenticated and no merchant_id query provided, scope to that merchant
   if (!merchant_id && req.user && req.user.role === 'merchant') {
@@ -141,6 +152,13 @@ exports.getFields = asyncHandler(async (req, res) => {
 
   if (city) {
     where.city = { [Op.iLike]: `%${String(city).trim()}%` };
+  }
+
+  if (normalizedName) {
+    where[Op.or] = [
+      { title: { [Op.iLike]: `%${normalizedName}%` } },
+      { '$fieldCategory.name$': { [Op.iLike]: `%${normalizedName}%` } },
+    ];
   }
 
   if (field_category_id !== undefined && field_category_id !== null && String(field_category_id).trim() !== '') {
@@ -169,7 +187,14 @@ exports.getFields = asyncHandler(async (req, res) => {
       limit,
       offset,
       order: [['created_at', 'DESC']],
-      include: [{ model: FieldCategory, as: 'fieldCategory' }],
+      distinct: true,
+      include: [
+        {
+          model: FieldCategory,
+          as: 'fieldCategory',
+          required: false,
+        },
+      ],
     });
 
     const result = getPagingData(data, page, limit);
@@ -180,7 +205,13 @@ exports.getFields = asyncHandler(async (req, res) => {
   const items = await Field.findAll({
     where,
     order: [['created_at', 'DESC']],
-    include: [{ model: FieldCategory, as: 'fieldCategory' }],
+    include: [
+      {
+        model: FieldCategory,
+        as: 'fieldCategory',
+        required: false,
+      },
+    ],
   });
   res.status(200).json(new ApiResponse(200, { items }, 'Fields retrieved'));
 });

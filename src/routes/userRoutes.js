@@ -12,6 +12,7 @@ const {
   searchCustomers,
   createCompanyEmployee,
   getCompanyEmployees,
+  grantEmployeeEnergyPoints,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 const authorize = require("../middleware/authorize");
@@ -86,6 +87,14 @@ const createEmployeeValidation = [
     .withMessage("Gender must be either male or female"),
 ];
 
+const grantEnergyPointsValidation = [
+  body("energy_points")
+    .exists()
+    .withMessage("energy_points is required")
+    .isFloat({ gt: 0 })
+    .withMessage("energy_points must be greater than 0"),
+];
+
 // Routes
 router.get("/", auth, authorize("superadmin"), getAllUsers);
 router.get("/search", auth, authorize("superadmin"), searchUsers);
@@ -109,6 +118,15 @@ router.post(
   authorize("superadmin", "companyadmin"),
   createEmployeeValidation,
   createCompanyEmployee
+);
+
+// Company admin grants energy points to an employee (deducts company wallet)
+router.post(
+  "/employees/:id/grant-energy-points",
+  auth,
+  authorize("companyadmin"),
+  grantEnergyPointsValidation,
+  grantEmployeeEnergyPoints
 );
 
 router.put("/:id", auth, authorize("superadmin", "user"), updateUser);

@@ -76,6 +76,12 @@ const User = sequelize.define(
       },
     },
 
+    energy_points_balance: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+
     city: {
       type: DataTypes.STRING(100),
       allowNull: true,

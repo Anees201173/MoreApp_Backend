@@ -69,6 +69,16 @@ const Company = sequelize.define('company', {
         defaultValue: true,
         allowNull: false
     },
+    wallet_balance: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+    },
+    energy_points_balance: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        defaultValue: 0,
+    },
 }, {
     tableName: 'companies',
     hooks: {

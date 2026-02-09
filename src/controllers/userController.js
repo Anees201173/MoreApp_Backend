@@ -1,4 +1,4 @@
-const { User, Company, Merchant } = require('../models');
+const { User, Company, Merchant, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -6,6 +6,9 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { sanitizeObject } = require('../utils/helpers')
+
+const EnergyConversionSetting = require('../models/EnergyConversionSetting');
+const CompanyWalletTransaction = require('../models/CompanyWalletTransaction');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -486,6 +489,118 @@ const getCompanyEmployees = asyncHandler(async (req, res) => {
   );
 });
 
+// @desc    Company admin grants energy points to an employee (deducts company wallet SAR by admin conversion)
+// @route   POST /api/users/employees/:id/grant-energy-points
+// @access  Private (companyadmin)
+const grantEmployeeEnergyPoints = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, 'Validation failed', errors.array());
+  }
+
+  const employeeId = req.params.id;
+  const pointsRaw = req.body?.energy_points ?? req.body?.points;
+  const points = Number.parseFloat(pointsRaw);
+
+  if (!Number.isFinite(points) || points <= 0) {
+    throw new ApiError(400, 'energy_points must be a number greater than 0');
+  }
+
+  const company = await Company.findOne({ where: { admin_id: req.user.id } });
+  if (!company) {
+    throw new ApiError(404, 'Company not found for this admin');
+  }
+
+  const employee = await User.findOne({ where: { id: employeeId, role: 'user' } });
+  if (!employee) {
+    throw new ApiError(404, 'Employee not found');
+  }
+
+  if (!employee.company_id || Number(employee.company_id) !== Number(company.id)) {
+    throw new ApiError(403, 'You can only grant points to employees in your company');
+  }
+
+  let setting = await EnergyConversionSetting.findOne({ order: [['id', 'ASC']] });
+  if (!setting) {
+    setting = await EnergyConversionSetting.create({ points_per_sar: 1 });
+  }
+
+  const pointsPerSar = Number.parseFloat(setting.points_per_sar);
+  if (!Number.isFinite(pointsPerSar) || pointsPerSar <= 0) {
+    throw new ApiError(500, 'Invalid energy conversion setting');
+  }
+
+  const sarCostRaw = points / pointsPerSar;
+  const sarCost = Math.round(sarCostRaw * 100) / 100;
+  if (!Number.isFinite(sarCost) || sarCost <= 0) {
+    throw new ApiError(400, 'Calculated SAR cost is invalid');
+  }
+
+  const walletBalance = Number.parseFloat(company.wallet_balance);
+  if (!Number.isFinite(walletBalance) || walletBalance < sarCost) {
+    throw new ApiError(400, 'Insufficient company wallet balance');
+  }
+
+  const { updatedCompany, updatedEmployee } = await sequelize.transaction(async (t) => {
+    return Promise.all([
+      Company.decrement('wallet_balance', {
+        by: sarCost,
+        where: { id: company.id },
+        transaction: t,
+      }).then(() => Company.findByPk(company.id, { transaction: t })),
+
+      User.increment('energy_points_balance', {
+        by: points,
+        where: { id: employee.id },
+        transaction: t,
+      }).then(() =>
+        User.findByPk(employee.id, {
+          attributes: { exclude: ['password'] },
+          transaction: t,
+        })
+      ),
+    ]).then(async ([companyRow, employeeRow]) => {
+      const employeeLabel = employee?.name
+        ? `${employee.name} (#${employee.id})`
+        : `#${employee.id}`;
+
+      await CompanyWalletTransaction.create(
+        {
+          company_id: company.id,
+          created_by_user_id: req.user.id,
+          type: 'withdraw',
+          status: 'approved',
+          amount: sarCost,
+          energy_points: points,
+          description: `Energy points granted to employee ${employeeLabel}`,
+        },
+        { transaction: t }
+      );
+
+      return { updatedCompany: companyRow, updatedEmployee: employeeRow };
+    });
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        employee: updatedEmployee,
+        company: {
+          id: updatedCompany.id,
+          wallet_balance: Number.parseFloat(updatedCompany.wallet_balance) || 0,
+        },
+        conversion: {
+          points_per_sar: pointsPerSar,
+          sar_cost: sarCost,
+          energy_points: points,
+        },
+      },
+      'Energy points granted successfully'
+    )
+  );
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -497,6 +612,7 @@ module.exports = {
   searchUsers,
   createCompanyEmployee,
   getCompanyEmployees,
+  grantEmployeeEnergyPoints,
   // searchCustomers
 
 };

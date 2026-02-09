@@ -5,7 +5,7 @@ const router = express.Router();
 const authorize = require('../middleware/authorize');
 const auth = require('../middleware/auth');
 
-const { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, toggleProductStatus, getUserProduct, getMyProducts, uploadProductImages } = require('../controllers/product.controller');
+const { createProduct, getAllProducts, getProductsByStoreId, getProductById, updateProduct, deleteProduct, toggleProductStatus, getUserProduct, getMyProducts, uploadProductImages } = require('../controllers/product.controller');
 const { array } = require('../middleware/multer');
 
 
@@ -104,6 +104,9 @@ const updateValidators = [
 // Use multer array middleware so multipart/form-data body (text fields + images) is parsed
 router.post('/', auth, authorize('merchant'), array('images', 10), createValidators, createProduct);
 router.get('/', auth, getAllProducts);
+
+// Products by store
+router.get('/store/:store_id', auth, getProductsByStoreId);
 
 // Token-based merchant products (no id required)
 router.get('/user/me', auth, authorize('merchant'), getMyProducts);

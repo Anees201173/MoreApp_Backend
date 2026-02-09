@@ -51,7 +51,7 @@ const createCategory = asyncHandler(async (req, res) => {
 // @access  Private (Admin)
 // --------------------------------------------------------
 const getAllCategories = asyncHandler(async (req, res) => {
-  const { page, size, search, is_active } = req.query;
+  const { page, size, search, is_active, status } = req.query;
   const { limit, offset } = getPagination(page, size);
 
   const whereClause = {};
@@ -63,8 +63,9 @@ const getAllCategories = asyncHandler(async (req, res) => {
     ];
   }
 
-  if (is_active !== undefined) {
-    whereClause.is_active = is_active === "true";
+  const rawStatus = status !== undefined ? status : is_active;
+  if (rawStatus !== undefined) {
+    whereClause.status = String(rawStatus) === "true";
   }
 
   const data = await Category.findAndCountAll({

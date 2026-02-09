@@ -23,6 +23,8 @@ const OrderItem = require('./OrderItem')
 const Post = require('./Post')
 const PostLike = require('./PostLike')
 const PostRepost = require('./PostRepost')
+const CompanyWalletTransaction = require('./CompanyWalletTransaction')
+const EnergyConversionSetting = require('./EnergyConversionSetting')
 
 
 
@@ -53,6 +55,56 @@ const defineAssociations = () => {
   User.belongsTo(Company, {
     foreignKey: 'company_id',
     as: 'company'
+  });
+
+  // ============ Company <--> Wallet Transactions ============//
+  Company.hasMany(CompanyWalletTransaction, {
+    foreignKey: 'company_id',
+    as: 'walletTransactions',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  CompanyWalletTransaction.belongsTo(Company, {
+    foreignKey: 'company_id',
+    as: 'company',
+  });
+
+  User.hasMany(CompanyWalletTransaction, {
+    foreignKey: 'created_by_user_id',
+    as: 'createdCompanyWalletTransactions',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  CompanyWalletTransaction.belongsTo(User, {
+    foreignKey: 'created_by_user_id',
+    as: 'createdBy',
+  });
+
+  // ============ Energy Conversion Settings ============//
+  User.hasMany(EnergyConversionSetting, {
+    foreignKey: 'created_by_user_id',
+    as: 'createdEnergyConversionSettings',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  User.hasMany(EnergyConversionSetting, {
+    foreignKey: 'updated_by_user_id',
+    as: 'updatedEnergyConversionSettings',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  EnergyConversionSetting.belongsTo(User, {
+    foreignKey: 'created_by_user_id',
+    as: 'createdBy',
+  });
+
+  EnergyConversionSetting.belongsTo(User, {
+    foreignKey: 'updated_by_user_id',
+    as: 'updatedBy',
   });
   // ============== User <--> Merchant ======= //
   // ========================================= //
@@ -169,6 +221,21 @@ const defineAssociations = () => {
   Product.belongsTo(Category, {
     foreignKey: 'category_id',
     as: 'category'
+  });
+
+  // =======================================================
+  //   CATEGORY <-> STORES   (One Category has Many Stores)
+  // =======================================================
+  Category.hasMany(Store, {
+    foreignKey: 'category_id',
+    as: 'stores',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  Store.belongsTo(Category, {
+    foreignKey: 'category_id',
+    as: 'category',
   });
 
 

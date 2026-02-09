@@ -1,4 +1,4 @@
-const { Product, Category, User, Merchant } = require("../models");
+const { Product, Category, User, Merchant, Store } = require("../models");
 const { Op } = require("sequelize");
 const { validationResult } = require("express-validator");
 const asyncHandler = require("../utils/asyncHandler");
@@ -141,6 +141,76 @@ exports.getAllProducts = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, result, "Products retrieved successfully"));
+});
+
+// ----------------------------------------------------
+// @desc     Get products by Store ID (pagination + filters)
+// @route    GET /api/v1/products/store/:store_id
+// @access   Public (consistent with /products listing)
+// ----------------------------------------------------
+exports.getProductsByStoreId = asyncHandler(async (req, res) => {
+  const { store_id } = req.params;
+  const { page, size, search, category_id, merchant_id, status } = req.query;
+
+  const storeIdNum = Number(store_id);
+  if (!Number.isFinite(storeIdNum)) {
+    throw new ApiError(400, 'store_id must be a number');
+  }
+
+  const store = await Store.findByPk(storeIdNum);
+  if (!store) {
+    throw new ApiError(404, 'Store not found');
+  }
+
+  const { limit, offset } = getPagination(page, size);
+  const whereClause = { store_id: storeIdNum };
+
+  if (search) {
+    whereClause[Op.or] = [
+      { title: { [Op.iLike]: `%${search}%` } },
+      { description: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
+
+  if (category_id) whereClause.category_id = category_id;
+  if (merchant_id) whereClause.merchant_id = merchant_id;
+  if (status !== undefined) whereClause.status = status === 'true';
+
+  const data = await Product.findAndCountAll({
+    where: whereClause,
+    limit,
+    offset,
+    order: [["id", "DESC"]],
+    include: [
+      { model: Category, as: 'category' },
+      { model: Store, as: 'store' },
+    ],
+  });
+
+  if (!data || !data.count) {
+    res.status(200).json(new ApiResponse(200, { items: [] }, 'No product found for this id'));
+    return;
+  }
+
+  const result = getPagingData(data, page, limit);
+  result.items = result.items.map(sanitizeProduct);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        store: {
+          id: store.id,
+          name: store.name,
+          merchant_id: store.merchant_id,
+          category_id: store.category_id,
+          is_active: store.is_active,
+        },
+        ...result,
+      },
+      'Store products retrieved successfully'
+    )
+  );
 });
 
 // ----------------------------------------------------
