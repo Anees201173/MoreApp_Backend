@@ -479,7 +479,16 @@ exports.getSuperadminDashboard = asyncHandler(async (req, res) => {
   const startStr = toDateOnly(start);
   const endStr = toDateOnly(end);
 
-  const [orders, bookings] = await Promise.all([
+  // Previous period (same length) for change calculations in popular sports
+  const prevEnd = addDays(currentRange.start, -1);
+  const prevStart =
+    currentRange.range === 'year'
+      ? new Date(Date.UTC(prevEnd.getUTCFullYear(), prevEnd.getUTCMonth() - 11, 1))
+      : addDays(currentRange.start, -(buckets.length));
+  const prevStartStr = toDateOnly(prevStart);
+  const prevEndStr = toDateOnly(prevEnd);
+
+  const [orders, bookings, prevBookings] = await Promise.all([
     Order.findAll({
       where: {
         createdAt: { [Op.between]: [start, end] },
@@ -493,6 +502,30 @@ exports.getSuperadminDashboard = asyncHandler(async (req, res) => {
         booking_date: { [Op.between]: [startStr, endStr] },
         status: { [Op.in]: ['confirmed', 'completed'] },
       },
+      include: [
+        {
+          model: Field,
+          as: 'field',
+          required: false,
+          attributes: ['id', 'sports'],
+        },
+      ],
+      attributes: ['booking_date', 'total_price'],
+      order: [['booking_date', 'ASC']],
+    }),
+    FieldBooking.findAll({
+      where: {
+        booking_date: { [Op.between]: [prevStartStr, prevEndStr] },
+        status: { [Op.in]: ['confirmed', 'completed'] },
+      },
+      include: [
+        {
+          model: Field,
+          as: 'field',
+          required: false,
+          attributes: ['id', 'sports'],
+        },
+      ],
       attributes: ['booking_date', 'total_price'],
       order: [['booking_date', 'ASC']],
     }),
@@ -527,6 +560,58 @@ exports.getSuperadminDashboard = asyncHandler(async (req, res) => {
     addToBucket(key, booking.total_price);
   }
 
+  // Popular sports/fields (global) derived from booking fields.sports
+  const sportsTotals = new Map();
+  const sportsSeries = new Map();
+  for (const booking of bookings) {
+    const key =
+      currentRange.range === 'year'
+        ? monthKey(booking.booking_date)
+        : String(booking.booking_date);
+    const idx = bucketIndex.get(key);
+
+    const rawSports = booking.field && Array.isArray(booking.field.sports) ? booking.field.sports : [];
+    const list = rawSports.length ? rawSports : ['Other'];
+
+    for (const sport of list) {
+      const sportKey = String(sport).trim() || 'Other';
+      sportsTotals.set(sportKey, (sportsTotals.get(sportKey) || 0) + 1);
+
+      if (!sportsSeries.has(sportKey)) {
+        sportsSeries.set(sportKey, new Array(buckets.length).fill(0));
+      }
+
+      if (idx !== undefined) {
+        sportsSeries.get(sportKey)[idx] += 1;
+      }
+    }
+  }
+
+  const prevSportsTotals = new Map();
+  for (const booking of prevBookings) {
+    const rawSports = booking.field && Array.isArray(booking.field.sports) ? booking.field.sports : [];
+    const list = rawSports.length ? rawSports : ['Other'];
+
+    for (const sport of list) {
+      const sportKey = String(sport).trim() || 'Other';
+      prevSportsTotals.set(sportKey, (prevSportsTotals.get(sportKey) || 0) + 1);
+    }
+  }
+
+  const popularSports = [...sportsTotals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([name, total]) => {
+      const prev = prevSportsTotals.get(name) || 0;
+      const changePct = prev === 0 ? (total > 0 ? 100 : 0) : ((total - prev) / prev) * 100;
+      return {
+        name,
+        total,
+        changePct: Number(changePct.toFixed(1)),
+        series: sportsSeries.get(name) || new Array(buckets.length).fill(0),
+      };
+    });
+
   const totalRevenue = revenueSeries.reduce(
     (acc, x) => acc + sumDecimal(x.sales),
     0,
@@ -558,6 +643,7 @@ exports.getSuperadminDashboard = asyncHandler(async (req, res) => {
       sales: Number(sumDecimal(x.sales).toFixed(2)),
       profit: Number(sumDecimal(x.profit).toFixed(2)),
     })),
+    popularSports,
   };
 
   res.status(200).json(

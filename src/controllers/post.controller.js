@@ -129,6 +129,7 @@ const createPost = asyncHandler(async (req, res) => {
 const getCompanyPosts = asyncHandler(async (req, res) => {
   const companyId = await resolveCompanyIdForQuery(req);
   const { status } = req.query;
+  const authorIdRaw = req.query.author_id ?? req.query.user_id;
 
   const where = {};
   if (companyId) {
@@ -136,6 +137,13 @@ const getCompanyPosts = asyncHandler(async (req, res) => {
   }
   if (status) {
     where.status = status;
+  }
+  if (authorIdRaw !== undefined && authorIdRaw !== null && String(authorIdRaw).trim() !== "") {
+    const authorId = Number(authorIdRaw);
+    if (!Number.isFinite(authorId) || authorId <= 0) {
+      throw new ApiError(400, "author_id must be a valid number");
+    }
+    where.user_id = authorId;
   }
 
   const posts = await Post.findAll({

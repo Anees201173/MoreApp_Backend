@@ -12,7 +12,11 @@ const auth = asyncHandler(async (req, res, next) => {
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
-    token = req.headers.authorization.split(" ")[1];
+    token = req.headers.authorization.replace(/^Bearer\s+/i, "").trim();
+    // handle accidental double prefix: "Bearer Bearer <token>"
+    while (token && /^Bearer\s+/i.test(token)) {
+      token = token.replace(/^Bearer\s+/i, "").trim();
+    }
   }
 
   // Make sure token exists
