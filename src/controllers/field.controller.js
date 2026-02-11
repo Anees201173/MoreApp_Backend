@@ -1,4 +1,13 @@
-const { Field, Merchant, FieldCategory, FieldAvailability, sequelize } = require('../models');
+const {
+  Field,
+  Merchant,
+  FieldCategory,
+  FieldAvailability,
+  FieldSubscriptionPlan,
+  Addon,
+  User,
+  sequelize,
+} = require('../models');
 const { Op } = require('sequelize');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const asyncHandler = require('../utils/asyncHandler');
@@ -13,6 +22,53 @@ const parseTimeToMinutes = (t) => {
   const hours = parseInt(m[1], 10);
   const minutes = parseInt(m[2], 10);
   return hours * 60 + minutes;
+};
+
+const minutesToTime = (mins) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const getDayOfWeekUTC = (dateStr) => {
+  // dateStr: YYYY-MM-DD
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.getUTCDay();
+};
+
+const parseISODateOnlyToUTC = (dateStr) => {
+  if (typeof dateStr !== 'string') return null;
+  const m = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  const day = parseInt(m[3], 10);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+};
+
+const formatUTCDateOnly = (dateObj) => {
+  return new Date(dateObj.getTime()).toISOString().slice(0, 10);
+};
+
+const normalizeDateOnly = (raw) => {
+  if (raw === undefined || raw === null) return null;
+  const val = String(raw).trim();
+  if (!val) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return null;
+  const d = new Date(`${val}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return val;
+};
+
+const timeToHHmm = (t) => {
+  if (t === undefined || t === null) return null;
+  const s = String(t);
+  // Handles both TIME strings like "09:00:00" and already formatted "09:00"
+  if (/^\d{2}:\d{2}/.test(s)) return s.slice(0, 5);
+  return s;
 };
 
 // Create a new field
@@ -218,12 +274,79 @@ exports.getFields = asyncHandler(async (req, res) => {
 
 // Get single field
 exports.getField = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const field = await Field.findByPk(id, {
-    include: [{ model: FieldCategory, as: 'fieldCategory' }],
+  const fieldId = Number(req.params.id);
+  if (!Number.isFinite(fieldId)) throw new ApiError(400, 'Field id must be a number');
+
+  const field = await Field.findByPk(fieldId, {
+    // Keep Field timestamps, but reduce noise in nested relations.
+    include: [
+      {
+        model: FieldCategory,
+        as: 'fieldCategory',
+        required: false,
+        attributes: ['id', 'name', 'description', 'icon_url', 'is_active'],
+      },
+      {
+        model: Merchant,
+        as: 'merchant',
+        required: false,
+        attributes: ['id', 'name', 'phone', 'email', 'address', 'user_id', 'uploads', 'is_active', 'createdAt', 'updatedAt'],
+        include: [
+          {
+            model: User,
+            as: 'user',
+            required: false,
+            attributes: [
+              'id',
+              'name',
+              'username',
+              'email',
+              'phone',
+              'gender',
+              'energy_points_balance',
+              'city',
+              'country',
+              'role',
+              'company_id',
+              'is_active',
+              'email_verified',
+              'last_login',
+              'createdAt',
+              'updatedAt',
+            ],
+          },
+        ],
+      },
+      {
+        model: Addon,
+        as: 'addons',
+        required: false,
+        where: { status: 'active' },
+        attributes: ['id', 'title', 'description', 'price', 'image', 'status'],
+      },
+      {
+        model: FieldSubscriptionPlan,
+        as: 'subscriptionPlans',
+        required: false,
+        where: { is_active: true, visibility: 'public' },
+        attributes: ['id', 'title', 'description', 'type', 'price', 'currency', 'features', 'visibility', 'is_active'],
+      },
+    ],
   });
+
   if (!field) throw new ApiError(404, 'Field not found');
-  res.status(200).json(new ApiResponse(200, { field }, 'Field retrieved'));
+
+  const cleanField = field.toJSON();
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        field: cleanField,
+      },
+      'Field retrieved'
+    )
+  );
 });
 
 // Get fields by field category id
