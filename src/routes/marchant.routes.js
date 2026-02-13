@@ -96,7 +96,7 @@ router.post('/:id/upload', auth, authorize('superadmin', 'merchant'), single('im
 
 // ===================== Merchant Field Availability ===================== //
 // Alias endpoints for merchant panel (canonical endpoints live under /api/v1/fields)
-router.get('/fields/:id/availability', auth, authorize('superadmin', 'merchant'), getFieldAvailability);
+router.get('/fields/:id/availability', auth, getFieldAvailability);
 router.put('/fields/:id/availability', auth, authorize('superadmin', 'merchant'), setFieldAvailability);
 router.get('/fields/:id/closures', auth, authorize('superadmin', 'merchant'), getFieldClosures);
 router.post('/fields/:id/closures', auth, authorize('superadmin', 'merchant'), addFieldClosure);
