@@ -1,4 +1,5 @@
-const { Store, Merchant, Category } = require('../models');
+const { Store, Merchant, Category, Order, OrderItem, Product, Sequelize } = require('../models');
+const { Op } = require('sequelize');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
@@ -7,6 +8,74 @@ const toInt = (v) => {
   const n = Number.parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
+
+const parseLimit = (v, fallback = 10, max = 50) => {
+  const n = Number.parseInt(String(v ?? ''), 10);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(n, max);
+};
+
+// ----------------------------------------------------
+// @desc     Get top stores
+// @route    GET /api/v1/stores/top?limit=
+// @access   Private (auth required in routes)
+// ----------------------------------------------------
+exports.getTopStores = asyncHandler(async (req, res) => {
+  const limit = parseLimit(req.query.limit, 10, 50);
+
+  const rows = await Store.findAll({
+    attributes: [
+      'id',
+      'name',
+      'description',
+      'image',
+      'merchant_id',
+      'category_id',
+      'is_active',
+      [Sequelize.fn('COUNT', Sequelize.fn('DISTINCT', Sequelize.col('products->orderItems.order_id'))), 'orders_count'],
+      [Sequelize.fn('SUM', Sequelize.col('products->orderItems.line_total')), 'revenue'],
+    ],
+    include: [
+      { model: Category, as: 'category', attributes: ['id', 'name'], required: false },
+      {
+        model: Product,
+        as: 'products',
+        attributes: [],
+        required: true,
+        where: { status: true },
+        include: [
+          {
+            model: OrderItem,
+            as: 'orderItems',
+            attributes: [],
+            required: true,
+            include: [
+              {
+                model: Order,
+                as: 'order',
+                attributes: [],
+                required: true,
+                where: { status: { [Op.in]: ['paid', 'completed'] } },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    group: ['stores.id', 'category.id'],
+    order: [[Sequelize.fn('SUM', Sequelize.col('products->orderItems.line_total')), 'DESC']],
+    limit,
+    subQuery: false,
+  });
+
+  const items = rows.map((store) => ({
+    orders_count: Number(store.get('orders_count') || 0),
+    revenue: Number(store.get('revenue') || 0),
+    store: store.toJSON(),
+  }));
+
+  res.status(200).json(new ApiResponse(200, { items }, 'Top stores retrieved successfully'));
+});
 
 // Create Store (merchant or superadmin)
 exports.createStore = asyncHandler(async (req, res) => {

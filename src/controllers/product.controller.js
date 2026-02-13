@@ -1,4 +1,4 @@
-const { Product, Category, User, Merchant, Store } = require("../models");
+const { Product, Category, User, Merchant, Store, Order, OrderItem, Sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { validationResult } = require("express-validator");
 const asyncHandler = require("../utils/asyncHandler");
@@ -9,6 +9,99 @@ const { sanitizeObject } = require("../utils/helpers");
 
 // Helper: sanitize product output
 const sanitizeProduct = (product) => sanitizeObject(product.toJSON(), []);
+
+const parseLimit = (v, fallback = 10, max = 50) => {
+  const n = Number.parseInt(String(v ?? ''), 10);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(n, max);
+};
+
+// ----------------------------------------------------
+// @desc     Get new arrival products
+// @route    GET /api/v1/products/new-arrivals?limit=
+// @access   Private (auth required in routes)
+// ----------------------------------------------------
+exports.getNewArrivalProducts = asyncHandler(async (req, res) => {
+  const limit = parseLimit(req.query.limit, 10, 50);
+
+  const items = await Product.findAll({
+    where: { status: true },
+    limit,
+    order: [['createdAt', 'DESC']],
+    include: [
+      { model: Category, as: 'category', attributes: ['id', 'name'], required: false },
+      { model: Store, as: 'store', attributes: ['id', 'name', 'image'], required: false },
+    ],
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { items: items.map(sanitizeProduct) },
+      'New arrival products retrieved successfully'
+    )
+  );
+});
+
+// ----------------------------------------------------
+// @desc     Get top selling products
+// @route    GET /api/v1/products/top-selling?limit=
+// @access   Private (auth required in routes)
+// ----------------------------------------------------
+exports.getTopSellingProducts = asyncHandler(async (req, res) => {
+  const limit = parseLimit(req.query.limit, 10, 50);
+
+  const rows = await OrderItem.findAll({
+    attributes: [
+      'product_id',
+      [Sequelize.fn('SUM', Sequelize.col('order_items.quantity')), 'sold_quantity'],
+      [Sequelize.fn('SUM', Sequelize.col('order_items.line_total')), 'revenue'],
+    ],
+    include: [
+      {
+        model: Order,
+        as: 'order',
+        attributes: [],
+        required: true,
+        where: {
+          status: { [Op.in]: ['paid', 'completed'] },
+        },
+      },
+      {
+        model: Product,
+        as: 'product',
+        required: true,
+        where: { status: true },
+        include: [
+          { model: Category, as: 'category', attributes: ['id', 'name'], required: false },
+          { model: Store, as: 'store', attributes: ['id', 'name', 'image'], required: false },
+        ],
+      },
+    ],
+    group: [
+      'product_id',
+      'product.id',
+      'product->category.id',
+      'product->store.id',
+    ],
+    order: [[Sequelize.literal('"sold_quantity" DESC')]],
+    limit,
+  });
+
+  const items = rows.map((r) => ({
+    sold_quantity: Number(r.get('sold_quantity') || 0),
+    revenue: Number(r.get('revenue') || 0),
+    product: r.product ? sanitizeProduct(r.product) : null,
+  }));
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { items },
+      'Top selling products retrieved successfully'
+    )
+  );
+});
 
 // ----------------------------------------------------
 // @desc     Create Product

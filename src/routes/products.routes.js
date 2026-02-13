@@ -5,7 +5,7 @@ const router = express.Router();
 const authorize = require('../middleware/authorize');
 const auth = require('../middleware/auth');
 
-const { createProduct, getAllProducts, getProductsByStoreId, getProductById, updateProduct, deleteProduct, toggleProductStatus, getUserProduct, getMyProducts, uploadProductImages } = require('../controllers/product.controller');
+const { createProduct, getAllProducts, getProductsByStoreId, getProductById, updateProduct, deleteProduct, toggleProductStatus, getUserProduct, getMyProducts, uploadProductImages, getNewArrivalProducts, getTopSellingProducts } = require('../controllers/product.controller');
 const { array } = require('../middleware/multer');
 
 
@@ -107,6 +107,10 @@ router.get('/', auth, getAllProducts);
 
 // Products by store
 router.get('/store/:store_id', auth, getProductsByStoreId);
+
+// New arrivals & top selling
+router.get('/new-arrivals', auth, getNewArrivalProducts);
+router.get('/top-selling', auth, getTopSellingProducts);
 
 // Token-based merchant products (no id required)
 router.get('/user/me', auth, authorize('merchant'), getMyProducts);
