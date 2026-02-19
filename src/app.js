@@ -30,6 +30,7 @@ const addonRoutes = require('./routes/addon.routes');
 const storeRoutes = require('./routes/store.routes');
 const cartRoutes = require('./routes/cart.routes');
 const ordersRoutes = require('./routes/orders.routes');
+const wishlistRoutes = require('./routes/wishlist.routes');
 
 const app = express();
 
@@ -89,6 +90,7 @@ app.use('/api/v1/addons', addonRoutes)
 app.use('/api/v1/stores', storeRoutes)
 app.use('/api/v1/cart', cartRoutes)
 app.use('/api/v1/orders', ordersRoutes)
+app.use('/api/v1/wishlist', wishlistRoutes)
 
 // 404 handler
 app.use(notFoundHandler);

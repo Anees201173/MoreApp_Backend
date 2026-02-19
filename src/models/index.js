@@ -23,6 +23,7 @@ const OrderItem = require('./OrderItem')
 const Post = require('./Post')
 const PostLike = require('./PostLike')
 const PostRepost = require('./PostRepost')
+const ProductWishlist = require('./ProductWishlist')
 const CompanyWalletTransaction = require('./CompanyWalletTransaction')
 const EnergyConversionSetting = require('./EnergyConversionSetting')
 
@@ -333,6 +334,33 @@ const defineAssociations = () => {
   });
 
   // =======================================================
+  //   PRODUCT <-> WISHLIST
+  // =======================================================
+  User.hasMany(ProductWishlist, {
+    foreignKey: 'user_id',
+    as: 'productWishlists',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  ProductWishlist.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user',
+  });
+
+  Product.hasMany(ProductWishlist, {
+    foreignKey: 'product_id',
+    as: 'wishlistedBy',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  ProductWishlist.belongsTo(Product, {
+    foreignKey: 'product_id',
+    as: 'product',
+  });
+
+  // =======================================================
   //   FIELD <-> BOOKINGS / SUBSCRIPTIONS
   // =======================================================
   Field.hasMany(FieldBooking, {
@@ -574,6 +602,7 @@ module.exports = {
   Post,
   PostLike,
   PostRepost,
+  ProductWishlist,
   Field,
   FieldCategory,
   FieldAvailability,
