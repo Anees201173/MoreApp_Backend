@@ -7,6 +7,7 @@ const authorize = require('../middleware/authorize');
 const {
   createPost,
   getCompanyPosts,
+  getMyPosts,
   deletePost,
   toggleLike,
   toggleRepost,
@@ -48,6 +49,13 @@ router.get(
   auth,
   authorize('superadmin', 'companyadmin', 'user'),
   getCompanyPosts
+);
+
+router.get(
+  '/me',
+  auth,
+  authorize('superadmin', 'companyadmin', 'user'),
+  getMyPosts
 );
 
 router.get(

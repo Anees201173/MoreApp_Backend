@@ -166,6 +166,37 @@ const getCompanyPosts = asyncHandler(async (req, res) => {
     );
 });
 
+// @desc    Get posts authored by the authenticated user
+// @route   GET /api/v1/posts/me
+// @access  Private
+const getMyPosts = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+
+  const where = {
+    user_id: req.user.id,
+  };
+  if (status) {
+    where.status = status;
+  }
+
+  const posts = await Post.findAll({
+    where,
+    include: [
+      { model: User, as: "author", attributes: ["id", "name", "role"] },
+      { model: PostLike, as: "likes", attributes: ["id", "user_id"] },
+      { model: PostRepost, as: "reposts", attributes: ["id", "user_id"] },
+    ],
+    order: [
+      ["scheduled_at", "ASC"],
+      ["createdAt", "DESC"],
+    ],
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { items: posts }, "Posts retrieved successfully"));
+});
+
 // @desc    Get aggregated insights for company posts (totals + monthly series)
 // @route   GET /api/v1/posts/insights
 // @access  Private (superadmin, companyadmin, user-with-company)
@@ -425,6 +456,7 @@ const deletePost = asyncHandler(async (req, res) => {
 module.exports = {
   createPost,
   getCompanyPosts,
+  getMyPosts,
   deletePost,
   toggleLike,
   toggleRepost,

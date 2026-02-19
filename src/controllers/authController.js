@@ -232,24 +232,34 @@ const updateProfile = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Validation failed", errors.array());
   }
 
-  const { name, username, phone, role } = req.body;
+  const { name, username, phone, gender, country, city } = req.body;
 
   const user = await User.findByPk(req.user.id);
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  // Update user
+  // Update user (no role/company changes allowed here)
   await user.update({
-    name: name || user.name,
-    username: username || user.username,
-    phone: phone || user.phone,
-    role: role || user.role,
+    name: name ?? user.name,
+    username: username ?? user.username,
+    phone: phone ?? user.phone,
+    gender: gender ?? user.gender,
+    country: country ?? user.country,
+    city: city ?? user.city,
   });
+
+  const sanitizedUser = sanitizeObject(user.toJSON(), [
+    "password",
+    "otp",
+    "otpExpires",
+    "otpType",
+    "refreshToken",
+  ]);
 
   res
     .status(200)
-    .json(new ApiResponse(200, { user }, "Profile updated successfully"));
+    .json(new ApiResponse(200, { user: sanitizedUser }, "Profile updated successfully"));
 });
 
 // @desc    Change password

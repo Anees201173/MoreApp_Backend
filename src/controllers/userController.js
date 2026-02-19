@@ -1,4 +1,4 @@
-const { User, Company, Merchant, sequelize } = require('../models');
+const { User, Company, Merchant, Post, PostRepost, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -9,6 +9,127 @@ const { sanitizeObject } = require('../utils/helpers')
 
 const EnergyConversionSetting = require('../models/EnergyConversionSetting');
 const CompanyWalletTransaction = require('../models/CompanyWalletTransaction');
+
+// @desc    Update my profile (based on token)
+// @route   PUT /api/v1/user/me
+// @access  Private
+const updateMyProfile = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, 'Validation failed', errors.array());
+  }
+
+  const { name, username, phone, gender, country, city } = req.body;
+
+  const user = await User.findByPk(req.user.id);
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  if (username && username !== user.username) {
+    const existingUserName = await User.findOne({
+      where: {
+        username,
+        id: { [Op.ne]: user.id },
+      },
+    });
+    if (existingUserName) {
+      throw new ApiError(400, 'Username taken, choose another username');
+    }
+  }
+
+  await user.update({
+    name: name ?? user.name,
+    username: username ?? user.username,
+    phone: phone ?? user.phone,
+    gender: gender ?? user.gender,
+    country: country ?? user.country,
+    city: city ?? user.city,
+  });
+
+  const sanitizedUser = sanitizeObject(user.toJSON(), [
+    'password',
+    'otp',
+    'otp_expires',
+    'otpType',
+  ]);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { user: sanitizedUser }, 'Profile updated successfully'));
+});
+
+// @desc    Get my activity + energy points summary (employees only)
+// @route   GET /api/v1/user/me/energy-summary
+// @access  Private
+const getMyEnergySummary = asyncHandler(async (req, res) => {
+  const user = await User.findByPk(req.user.id, {
+    attributes: { exclude: ['password', 'otp', 'otp_expires', 'otpType'] },
+  });
+
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const looksLikeVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].toLowerCase();
+    return (
+      clean.endsWith('.mp4') ||
+      clean.endsWith('.mov') ||
+      clean.endsWith('.m4v') ||
+      clean.endsWith('.webm') ||
+      clean.endsWith('.avi')
+    );
+  };
+
+  const [postsRows, repostsRows] = await Promise.all([
+    Post.findAll({
+      where: { user_id: user.id },
+      order: [["createdAt", "DESC"]],
+    }),
+    PostRepost.findAll({
+      where: { user_id: user.id },
+      include: [
+        {
+          model: Post,
+          as: 'post',
+          include: [{ model: User, as: 'author', attributes: ['id', 'name', 'role'] }],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    }),
+  ]);
+
+  const posts = postsRows.map((p) => p.toJSON());
+  const reposts = repostsRows.map((r) => r.toJSON());
+  const reels = posts.filter((p) => Array.isArray(p.media_urls) && p.media_urls.some(looksLikeVideoUrl));
+
+  const isCompanyEmployee = user.role === 'user' && !!user.company_id;
+  const data = {
+    user,
+    activity: {
+      posts: posts.length,
+      reposts: reposts.length,
+      reels: reels.length,
+    },
+    items: {
+      posts,
+      reposts,
+      reels,
+    },
+  };
+
+  if (isCompanyEmployee) {
+    data.energy_points = {
+      total: Number.parseFloat(user.energy_points_balance) || 0,
+    };
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, data, 'Summary retrieved successfully'));
+});
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -605,6 +726,8 @@ module.exports = {
   getAllUsers,
   getUserById,
   getMyProfile,
+  updateMyProfile,
+  getMyEnergySummary,
   createUser,
   updateUser,
   deleteUser,

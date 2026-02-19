@@ -13,6 +13,8 @@ const {
   createCompanyEmployee,
   getCompanyEmployees,
   grantEmployeeEnergyPoints,
+  getMyEnergySummary,
+  updateMyProfile,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 const authorize = require("../middleware/authorize");
@@ -64,6 +66,35 @@ const updateUserValidation = [
     .withMessage("Please provide a valid phone number"),
 ];
 
+const updateMyProfileValidation = [
+  body("name")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage("Name must be between 2 and 50 characters"),
+  body("username")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage("Username must be between 2 and 50 characters"),
+  body("phone")
+    .optional()
+    .isMobilePhone()
+    .withMessage("Please provide a valid phone number"),
+  body("gender")
+    .optional()
+    .isIn(["male", "female"])
+    .withMessage("Gender must be either male or female"),
+  body("country")
+    .optional()
+    .isLength({ min: 2, max: 100 })
+    .withMessage("Country must be between 2 and 100 characters"),
+  body("city")
+    .optional()
+    .isLength({ min: 2, max: 100 })
+    .withMessage("City must be between 2 and 100 characters"),
+];
+
 // Validation for company employee creation (company admin)
 const createEmployeeValidation = [
   body("name")
@@ -105,6 +136,8 @@ router.get(
   getCompanyEmployees
 );
 router.get("/me", auth, getMyProfile);
+router.put("/me", auth, updateMyProfileValidation, updateMyProfile);
+router.get("/me/energy-summary", auth, getMyEnergySummary);
 router.get("/:id", auth, getUserById);
 //router.get("/search-customers", auth, authorize(""), searchCustomers); 
 
