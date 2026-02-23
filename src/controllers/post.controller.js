@@ -5,6 +5,75 @@ const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
 
+const looksLikeVideoUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  // Support common file extensions and Cloudinary video URLs
+  return (
+    /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url) ||
+    /\/video\/upload\//i.test(url)
+  );
+};
+
+const parsePagination = (req) => {
+  const pageRaw = req.query.page ?? 0;
+  const sizeRaw = req.query.size ?? req.query.limit ?? 20;
+
+  const page = Math.max(0, Number(pageRaw) || 0);
+  const size = Math.min(100, Math.max(1, Number(sizeRaw) || 20));
+  const offset = page * size;
+
+  return { page, size, offset, limit: size };
+};
+
+const videoUrlPredicateSql = () => {
+  // Postgres array: match any element that looks like a video file URL
+  return `EXISTS (
+    SELECT 1
+    FROM unnest("posts"."media_urls") AS u(url)
+    WHERE u.url ~* '\\.(mp4|mov|avi|mkv|webm)(\\?|$)' OR u.url ILIKE '%/video/upload/%'
+  )`;
+};
+
+const buildPostVisibility = async (req) => {
+  const companyId = await resolveCompanyIdForQuery(req);
+  const where = {};
+  if (companyId) where.company_id = companyId;
+
+  // IMPORTANT: company-linked employees should only see posts by company employees or company admin.
+  // (i.e. authored by role user/companyadmin) within their company.
+  const authorWhere = req.user.role === "user" ? { role: { [Op.in]: ["companyadmin", "user"] } } : null;
+
+  return { companyId, where, authorWhere };
+};
+
+const normalizeHashtags = (input) => {
+  if (input === undefined || input === null) return [];
+
+  const rawTags = Array.isArray(input)
+    ? input
+    : typeof input === "string"
+      ? input.split(/[\s,]+/)
+      : [];
+
+  return rawTags
+    .map((t) => (typeof t === "string" ? t.trim() : ""))
+    .map((t) => (t.startsWith("#") ? t.slice(1) : t))
+    .filter(Boolean)
+    .slice(0, 30);
+};
+
+const likesCountSql = () => `(
+  SELECT COUNT(*)
+  FROM post_likes pl
+  WHERE pl.post_id = "posts"."id"
+)`;
+
+const repostsCountSql = () => `(
+  SELECT COUNT(*)
+  FROM post_reposts pr
+  WHERE pr.post_id = "posts"."id"
+)`;
+
 // Resolve company context for the current user (strict – used for mutations)
 async function resolveCompanyId(req) {
   // companyadmin → company where admin_id = user.id
@@ -17,7 +86,7 @@ async function resolveCompanyId(req) {
   }
 
   // employee user with company_id
-  if (req.user.role === "user" && req.user.company_id) {
+  if ((req.user.role === "user" || req.user.role === "merchant") && req.user.company_id) {
     return req.user.company_id;
   }
 
@@ -51,7 +120,7 @@ async function resolveCompanyIdForQuery(req) {
   }
 
   // employee user with company_id
-  if (req.user.role === "user" && req.user.company_id) {
+  if ((req.user.role === "user" || req.user.role === "merchant") && req.user.company_id) {
     return req.user.company_id;
   }
 
@@ -84,14 +153,21 @@ const createPost = asyncHandler(async (req, res) => {
 
   const companyId = await resolveCompanyId(req);
 
-  const { title, content, media_urls, scheduled_at } = req.body;
+  const { title, content, media_urls, scheduled_at, hashtags } = req.body;
 
   if (!content || !content.trim()) {
     throw new ApiError(400, "Post content is required");
   }
 
   if (!Array.isArray(media_urls) || media_urls.length === 0) {
-    throw new ApiError(400, "At least one image or video is required for a post");
+    throw new ApiError(400, "At least one image is required for a post");
+  }
+
+  if (media_urls.some(looksLikeVideoUrl)) {
+    throw new ApiError(
+      400,
+      "Video uploads must be created as reels. Use POST /api/v1/reels"
+    );
   }
 
   let scheduledAt = null;
@@ -112,6 +188,7 @@ const createPost = asyncHandler(async (req, res) => {
     title: effectiveTitle,
     content,
     media_urls,
+    hashtags: normalizeHashtags(hashtags),
     status,
     scheduled_at: scheduledAt,
     company_id: companyId,
@@ -123,6 +200,65 @@ const createPost = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, { post }, "Post created successfully"));
 });
 
+// @desc    Create a new reel (video post)
+// @route   POST /api/v1/reels
+// @access  Private (superadmin, companyadmin, merchant, user-with-company)
+const createReel = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    throw new ApiError(400, "Validation failed", errors.array());
+  }
+
+  const companyId = await resolveCompanyId(req);
+
+  const { title, content, media_urls, scheduled_at, hashtags } = req.body;
+
+  if (!content || !content.trim()) {
+    throw new ApiError(400, "Reel content is required");
+  }
+
+  if (!Array.isArray(media_urls) || media_urls.length === 0) {
+    throw new ApiError(400, "At least one video is required for a reel");
+  }
+
+  const hasNonVideo = media_urls.some((u) => !looksLikeVideoUrl(u));
+  if (hasNonVideo) {
+    throw new ApiError(
+      400,
+      "Reels only support video media URLs. Use POST /api/v1/posts for image posts"
+    );
+  }
+
+  let scheduledAt = null;
+  if (scheduled_at) {
+    const parsed = new Date(scheduled_at);
+    if (!isNaN(parsed.getTime())) {
+      scheduledAt = parsed;
+    }
+  }
+
+  const now = new Date();
+  const status = scheduledAt && scheduledAt > now ? "scheduled" : "published";
+
+  const effectiveTitle =
+    title && title.trim().length ? title.trim() : content.substring(0, 80);
+
+  const post = await Post.create({
+    title: effectiveTitle,
+    content,
+    media_urls,
+    hashtags: normalizeHashtags(hashtags),
+    status,
+    scheduled_at: scheduledAt,
+    company_id: companyId,
+    user_id: req.user.id,
+  });
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, { post }, "Reel created successfully"));
+});
+
 // @desc    Get posts for the current company
 // @route   GET /api/v1/posts
 // @access  Private (superadmin, companyadmin, user-with-company)
@@ -130,6 +266,9 @@ const getCompanyPosts = asyncHandler(async (req, res) => {
   const companyId = await resolveCompanyIdForQuery(req);
   const { status } = req.query;
   const authorIdRaw = req.query.author_id ?? req.query.user_id;
+
+  // IMPORTANT: company-linked employees should only see posts by company employees or company admin.
+  const restrictAuthorRolesForEmployee = req.user.role === "user";
 
   const where = {};
   if (companyId) {
@@ -149,7 +288,14 @@ const getCompanyPosts = asyncHandler(async (req, res) => {
   const posts = await Post.findAll({
     where,
     include: [
-      { model: User, as: "author", attributes: ["id", "name", "role"] },
+      {
+        model: User,
+        as: "author",
+        attributes: ["id", "name", "role"],
+        ...(restrictAuthorRolesForEmployee
+          ? { where: { role: { [Op.in]: ["companyadmin", "user"] } }, required: true }
+          : {}),
+      },
       { model: PostLike, as: "likes", attributes: ["id", "user_id"] },
       { model: PostRepost, as: "reposts", attributes: ["id", "user_id"] },
     ],
@@ -166,6 +312,126 @@ const getCompanyPosts = asyncHandler(async (req, res) => {
     );
 });
 
+// @desc    Get top posts (company-scoped with pagination)
+// @route   GET /api/v1/posts/top
+// @access  Private (superadmin, companyadmin, merchant, user)
+const getTopPosts = asyncHandler(async (req, res) => {
+  const { page, size, offset, limit } = parsePagination(req);
+  const status = (req.query.status || "published").trim();
+
+  const { where, authorWhere } = await buildPostVisibility(req);
+  if (status) where.status = status;
+
+  const scoreExpr = `(${likesCountSql()} + ${repostsCountSql()})`;
+
+  const [total, items] = await Promise.all([
+    Post.count({
+      where,
+      include: authorWhere
+        ? [{ model: User, as: "author", required: true, where: authorWhere }]
+        : [{ model: User, as: "author", required: false }],
+      distinct: true,
+    }),
+    Post.findAll({
+      where,
+      attributes: {
+        include: [
+          [sequelize.literal(likesCountSql()), "likes_count"],
+          [sequelize.literal(repostsCountSql()), "reposts_count"],
+          [sequelize.literal(scoreExpr), "score"],
+        ],
+      },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "role"],
+          ...(authorWhere ? { where: authorWhere, required: true } : {}),
+        },
+      ],
+      order: [[sequelize.literal(scoreExpr), "DESC"], ["createdAt", "DESC"]],
+      limit,
+      offset,
+    }),
+  ]);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        items,
+        page,
+        size,
+        total,
+        hasMore: offset + items.length < total,
+      },
+      "Top posts retrieved successfully"
+    )
+  );
+});
+
+// @desc    Get top reels (video posts) (company-scoped with pagination)
+// @route   GET /api/v1/posts/top-reels
+// @access  Private (superadmin, companyadmin, merchant, user)
+const getTopReels = asyncHandler(async (req, res) => {
+  const { page, size, offset, limit } = parsePagination(req);
+  const status = (req.query.status || "published").trim();
+
+  const { where, authorWhere } = await buildPostVisibility(req);
+  if (status) where.status = status;
+
+  // Filter: any media_urls element looks like a video
+  where[Op.and] = where[Op.and] || [];
+  where[Op.and].push(sequelize.literal(videoUrlPredicateSql()));
+
+  const scoreExpr = `(${likesCountSql()} + ${repostsCountSql()})`;
+
+  const [total, items] = await Promise.all([
+    Post.count({
+      where,
+      include: authorWhere
+        ? [{ model: User, as: "author", required: true, where: authorWhere }]
+        : [{ model: User, as: "author", required: false }],
+      distinct: true,
+    }),
+    Post.findAll({
+      where,
+      attributes: {
+        include: [
+          [sequelize.literal(likesCountSql()), "likes_count"],
+          [sequelize.literal(repostsCountSql()), "reposts_count"],
+          [sequelize.literal(scoreExpr), "score"],
+        ],
+      },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "role"],
+          ...(authorWhere ? { where: authorWhere, required: true } : {}),
+        },
+      ],
+      order: [[sequelize.literal(scoreExpr), "DESC"], ["createdAt", "DESC"]],
+      limit,
+      offset,
+    }),
+  ]);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        items,
+        page,
+        size,
+        total,
+        hasMore: offset + items.length < total,
+      },
+      "Top reels retrieved successfully"
+    )
+  );
+});
+
 // @desc    Get posts authored by the authenticated user
 // @route   GET /api/v1/posts/me
 // @access  Private
@@ -178,6 +444,10 @@ const getMyPosts = asyncHandler(async (req, res) => {
   if (status) {
     where.status = status;
   }
+
+  // Posts = image-only (exclude reels/videos)
+  where[Op.and] = where[Op.and] || [];
+  where[Op.and].push(sequelize.literal(`NOT (${videoUrlPredicateSql()})`));
 
   const posts = await Post.findAll({
     where,
@@ -195,6 +465,41 @@ const getMyPosts = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, { items: posts }, "Posts retrieved successfully"));
+});
+
+// @desc    Get reels (video posts) authored by the authenticated user
+// @route   GET /api/v1/reels/me
+// @access  Private
+const getMyReels = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+
+  const where = {
+    user_id: req.user.id,
+  };
+  if (status) {
+    where.status = status;
+  }
+
+  // Filter: any media_urls element looks like a video
+  where[Op.and] = where[Op.and] || [];
+  where[Op.and].push(sequelize.literal(videoUrlPredicateSql()));
+
+  const reels = await Post.findAll({
+    where,
+    include: [
+      { model: User, as: "author", attributes: ["id", "name", "role"] },
+      { model: PostLike, as: "likes", attributes: ["id", "user_id"] },
+      { model: PostRepost, as: "reposts", attributes: ["id", "user_id"] },
+    ],
+    order: [
+      ["scheduled_at", "ASC"],
+      ["createdAt", "DESC"],
+    ],
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { items: reels }, "Reels retrieved successfully"));
 });
 
 // @desc    Get aggregated insights for company posts (totals + monthly series)
@@ -455,8 +760,12 @@ const deletePost = asyncHandler(async (req, res) => {
 
 module.exports = {
   createPost,
+  createReel,
   getCompanyPosts,
+  getTopPosts,
+  getTopReels,
   getMyPosts,
+  getMyReels,
   deletePost,
   toggleLike,
   toggleRepost,

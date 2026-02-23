@@ -1,23 +1,13 @@
 const express = require('express');
 const { body } = require('express-validator');
-const router = express.Router();
 
 const auth = require('../middleware/auth');
 const authorize = require('../middleware/authorize');
-const {
-  createPost,
-  getCompanyPosts,
-  getTopPosts,
-  getTopReels,
-  getMyPosts,
-  deletePost,
-  toggleLike,
-  toggleRepost,
-  getCompanyPostInsights,
-} = require('../controllers/post.controller');
+const { createReel, getMyReels } = require('../controllers/post.controller');
 
-// Validation rules for creating a post
-const createPostValidation = [
+const router = express.Router();
+
+const createReelValidation = [
   body('content')
     .trim()
     .isLength({ min: 1 })
@@ -47,69 +37,21 @@ const createPostValidation = [
     .withMessage('scheduled_at must be a valid date-time string'),
 ];
 
-// Routes
+// POST /api/v1/reels
 router.post(
   '/',
   auth,
   authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  createPostValidation,
-  createPost
+  createReelValidation,
+  createReel
 );
 
-router.get(
-  '/',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  getCompanyPosts
-);
-
-router.get(
-  '/top',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  getTopPosts
-);
-
-router.get(
-  '/top-reels',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  getTopReels
-);
-
+// GET /api/v1/reels/me
 router.get(
   '/me',
   auth,
   authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  getMyPosts
-);
-
-router.get(
-  '/insights',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  getCompanyPostInsights
-);
-
-router.delete(
-  '/:id',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  deletePost
-);
-
-router.post(
-  '/:id/like',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  toggleLike
-);
-
-router.post(
-  '/:id/repost',
-  auth,
-  authorize('superadmin', 'companyadmin', 'merchant', 'user'),
-  toggleRepost
+  getMyReels
 );
 
 module.exports = router;

@@ -28,6 +28,12 @@ const Post = sequelize.define(
       defaultValue: [],
     },
 
+    hashtags: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: false,
+      defaultValue: [],
+    },
+
     status: {
       type: DataTypes.ENUM("draft", "scheduled", "published", "cancelled"),
       allowNull: false,

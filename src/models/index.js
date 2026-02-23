@@ -7,12 +7,15 @@ const FieldCategory = require('./FieldCategory')
 const FieldAvailability = require('./FieldAvailability')
 const FieldClosure = require('./FieldClosure')
 const FieldBooking = require('./FieldBooking')
+const FieldLocation = require('./FieldLocation')
 const FieldSubscription = require('./FieldSubscription')
 const FieldSubscriptionPlan = require('./FieldSubscriptionPlan')
 const Addon = require('./Addon')
 const User = require('./User')
 const Company = require('./Company')
 const Merchant = require('./Marchant')
+const MerchantSubscription = require('./MerchantSubscription')
+const MerchantSubscriptionPlan = require('./MerchantSubscriptionPlan')
 const Category = require('./Category')
 const Product = require('./Product')
 const Store = require('./Store')
@@ -190,6 +193,21 @@ const defineAssociations = () => {
   });
 
   FieldAvailability.belongsTo(Field, {
+    foreignKey: 'field_id',
+    as: 'field',
+  });
+
+  // =======================================================
+  //   FIELD <-> LOCATIONS (merchant-provided location links)
+  // =======================================================
+  Field.hasMany(FieldLocation, {
+    foreignKey: 'field_id',
+    as: 'locations',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  FieldLocation.belongsTo(Field, {
     foreignKey: 'field_id',
     as: 'field',
   });
@@ -424,6 +442,57 @@ const defineAssociations = () => {
   });
 
   // =======================================================
+  //   MERCHANT <-> USER SUBSCRIPTIONS (merchant-added)
+  // =======================================================
+  Merchant.hasMany(MerchantSubscription, {
+    foreignKey: 'merchant_id',
+    as: 'merchantSubscriptions',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscription.belongsTo(Merchant, {
+    foreignKey: 'merchant_id',
+    as: 'merchant',
+  });
+
+  User.hasMany(MerchantSubscription, {
+    foreignKey: 'user_id',
+    as: 'merchantSubscriptions',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscription.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user',
+  });
+
+  MerchantSubscriptionPlan.hasMany(MerchantSubscription, {
+    foreignKey: 'plan_id',
+    as: 'subscriptions',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscription.belongsTo(MerchantSubscriptionPlan, {
+    foreignKey: 'plan_id',
+    as: 'plan',
+  });
+
+  Merchant.hasMany(MerchantSubscriptionPlan, {
+    foreignKey: 'merchant_id',
+    as: 'merchantSubscriptionPlans',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscriptionPlan.belongsTo(Merchant, {
+    foreignKey: 'merchant_id',
+    as: 'merchant',
+  });
+
+  // =======================================================
   //   FIELD <-> ADDONS
   // =======================================================
   Field.hasMany(Addon, {
@@ -597,6 +666,8 @@ module.exports = {
   User,
   Company,
   Merchant,
+  MerchantSubscription,
+  MerchantSubscriptionPlan,
   Category,
   Product,
   Post,
@@ -608,6 +679,7 @@ module.exports = {
   FieldAvailability,
   FieldClosure,
   FieldBooking,
+  FieldLocation,
   FieldSubscription,
   FieldSubscriptionPlan,
   Addon,

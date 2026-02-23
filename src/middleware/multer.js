@@ -1,6 +1,7 @@
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
+const ApiError = require('../utils/ApiError');
 
 const storage = new CloudinaryStorage({
   cloudinary,
@@ -26,9 +27,20 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
+const imageOnlyFilter = (req, file, cb) => {
+  if (file && file.mimetype && file.mimetype.startsWith('image/')) {
+    return cb(null, true);
+  }
+  return cb(new ApiError(400, 'Only image files are allowed'), false);
+};
+
+const uploadImagesOnly = multer({ storage, fileFilter: imageOnlyFilter });
+
 module.exports = {
   upload,
   single: (fieldName = 'image') => upload.single(fieldName),
   array: (fieldName = 'images', maxCount = 5) => upload.array(fieldName, maxCount),
-  fields: (fields = []) => upload.fields(fields)
+  fields: (fields = []) => upload.fields(fields),
+  singleImage: (fieldName = 'image') => uploadImagesOnly.single(fieldName),
+  arrayImages: (fieldName = 'images', maxCount = 5) => uploadImagesOnly.array(fieldName, maxCount),
 };

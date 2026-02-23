@@ -19,6 +19,7 @@ const merchantRoutes = require('./routes/marchant.routes');
 const categoryRoutes = require('./routes/category.routes');
 const productRoutes = require('./routes/products.routes');
 const postRoutes = require('./routes/post.routes');
+const reelRoutes = require('./routes/reel.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const fieldRoutes = require('./routes/field.routes');
@@ -31,6 +32,7 @@ const storeRoutes = require('./routes/store.routes');
 const cartRoutes = require('./routes/cart.routes');
 const ordersRoutes = require('./routes/orders.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
+const subscriptionsRoutes = require('./routes/subscriptions.routes');
 
 const app = express();
 
@@ -79,6 +81,7 @@ app.use('/api/v1/merchant', merchantRoutes)
 app.use('/api/v1/category', categoryRoutes)
 app.use('/api/v1/products', productRoutes)
 app.use('/api/v1/posts', postRoutes)
+app.use('/api/v1/reels', reelRoutes)
 app.use('/api/v1/upload', uploadRoutes)
 app.use('/api/v1/dashboard', dashboardRoutes)
 app.use('/api/v1/fields', fieldRoutes)
@@ -91,6 +94,7 @@ app.use('/api/v1/stores', storeRoutes)
 app.use('/api/v1/cart', cartRoutes)
 app.use('/api/v1/orders', ordersRoutes)
 app.use('/api/v1/wishlist', wishlistRoutes)
+app.use('/api/v1/subscriptions', subscriptionsRoutes)
 
 // 404 handler
 app.use(notFoundHandler);

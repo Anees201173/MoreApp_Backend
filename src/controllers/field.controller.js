@@ -3,6 +3,7 @@ const {
   Merchant,
   FieldCategory,
   FieldAvailability,
+  FieldLocation,
   FieldSubscriptionPlan,
   Addon,
   User,
@@ -73,7 +74,20 @@ const timeToHHmm = (t) => {
 
 // Create a new field
 exports.createField = asyncHandler(async (req, res) => {
-  const { title, description, address, sports, images, merchant_id, city, latitude, longitude, price_per_hour, field_category_id } = req.body;
+  const {
+    title,
+    description,
+    address,
+    sports,
+    images,
+    merchant_id,
+    city,
+    latitude,
+    longitude,
+    price_per_hour,
+    field_category_id,
+    locations,
+  } = req.body;
 
   const rawAvailability = req.body.availability ?? req.body.availabilities;
   const parseAvailability = (val) => {
@@ -108,6 +122,30 @@ exports.createField = asyncHandler(async (req, res) => {
     return [];
   };
 
+  const parseLocations = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const validateUrl = (raw) => {
+    if (!raw) return false;
+    try {
+      const u = new URL(String(raw));
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   // if an image file is uploaded (multer + cloudinary), add its url to images
   const file = req.file;
   let uploadedUrl = null;
@@ -125,6 +163,8 @@ exports.createField = asyncHandler(async (req, res) => {
   }
 
   const result = await sequelize.transaction(async (t) => {
+    const locationItems = parseLocations(locations);
+
     const field = await Field.create(
       {
         title: title.trim(),
@@ -133,7 +173,8 @@ exports.createField = asyncHandler(async (req, res) => {
         sports: parseArrayField(sports),
         images: (() => {
           const base = parseArrayField(images);
-          if (uploadedUrl) base.push(uploadedUrl);
+          // Treat uploaded image as main banner => keep it first in array
+          if (uploadedUrl) base.unshift(uploadedUrl);
           return base;
         })(),
         city,
@@ -145,6 +186,29 @@ exports.createField = asyncHandler(async (req, res) => {
       },
       { transaction: t }
     );
+
+    if (locationItems && locationItems.length) {
+      const rows = locationItems.map((loc) => {
+        const countryVal = loc?.country !== undefined && loc?.country !== null ? String(loc.country).trim() : null;
+        const cityVal = loc?.city !== undefined && loc?.city !== null ? String(loc.city).trim() : null;
+        const urlVal = loc?.location_url !== undefined && loc?.location_url !== null
+          ? String(loc.location_url).trim()
+          : (loc?.url !== undefined && loc?.url !== null ? String(loc.url).trim() : null);
+
+        if (!urlVal || !validateUrl(urlVal)) {
+          throw new ApiError(400, 'Each location must include a valid location_url (http/https)');
+        }
+
+        return {
+          field_id: field.id,
+          country: countryVal || null,
+          city: cityVal || null,
+          location_url: urlVal,
+        };
+      });
+
+      await FieldLocation.bulkCreate(rows, { transaction: t });
+    }
 
     if (availability && availability.length) {
       const rows = availability.map((a) => {
@@ -250,6 +314,12 @@ exports.getFields = asyncHandler(async (req, res) => {
           as: 'fieldCategory',
           required: false,
         },
+        {
+          model: FieldLocation,
+          as: 'locations',
+          required: false,
+          attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
+        },
       ],
     });
 
@@ -266,6 +336,12 @@ exports.getFields = asyncHandler(async (req, res) => {
         model: FieldCategory,
         as: 'fieldCategory',
         required: false,
+      },
+      {
+        model: FieldLocation,
+        as: 'locations',
+        required: false,
+        attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
       },
     ],
   });
@@ -331,6 +407,12 @@ exports.getField = asyncHandler(async (req, res) => {
         where: { is_active: true, visibility: 'public' },
         attributes: ['id', 'title', 'description', 'type', 'price', 'currency', 'features', 'visibility', 'is_active'],
       },
+      {
+        model: FieldLocation,
+        as: 'locations',
+        required: false,
+        attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
+      },
     ],
   });
 
@@ -375,7 +457,15 @@ exports.getFieldsByCategory = asyncHandler(async (req, res) => {
       limit,
       offset,
       order: [['created_at', 'DESC']],
-      include: [{ model: FieldCategory, as: 'fieldCategory' }],
+      include: [
+        { model: FieldCategory, as: 'fieldCategory' },
+        {
+          model: FieldLocation,
+          as: 'locations',
+          required: false,
+          attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
+        },
+      ],
     });
 
     const result = getPagingData(data, page, limit);
@@ -386,7 +476,15 @@ exports.getFieldsByCategory = asyncHandler(async (req, res) => {
   const items = await Field.findAll({
     where,
     order: [['created_at', 'DESC']],
-    include: [{ model: FieldCategory, as: 'fieldCategory' }],
+    include: [
+      { model: FieldCategory, as: 'fieldCategory' },
+      {
+        model: FieldLocation,
+        as: 'locations',
+        required: false,
+        attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
+      },
+    ],
   });
 
   res.status(200).json(new ApiResponse(200, { items }, 'Fields retrieved'));
