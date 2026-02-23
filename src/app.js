@@ -94,7 +94,10 @@ app.use('/api/v1/stores', storeRoutes)
 app.use('/api/v1/cart', cartRoutes)
 app.use('/api/v1/orders', ordersRoutes)
 app.use('/api/v1/wishlist', wishlistRoutes)
+<<<<<<< HEAD
 app.use('/api/v1/subscriptions', subscriptionsRoutes)
+=======
+>>>>>>> a122efd5e142f4ef149ccfe9f09c4d96b2636ce9
 
 // 404 handler
 app.use(notFoundHandler);
