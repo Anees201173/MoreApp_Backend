@@ -7,6 +7,7 @@ const Company = require('../models/Company');
 const CompanyWalletTransaction = require('../models/CompanyWalletTransaction');
 const EnergyConversionSetting = require('../models/EnergyConversionSetting');
 const User = require('../models/User');
+const { notifySuperadmins } = require('../services/notification.service');
 
 const extractEmployeeId = (description) => {
   if (!description) return null;
@@ -156,6 +157,24 @@ exports.depositCompanyWallet = asyncHandler(async (req, res) => {
     energy_points: energyPoints,
     description: description || 'Wallet deposit',
   });
+
+  // Best-effort: notify superadmins in real-time (does not block the deposit flow)
+  try {
+    await notifySuperadmins({
+      type: 'company_wallet_deposit_requested',
+      title: 'New deposit request',
+      message: `${company.name} requested a wallet deposit of SAR ${amount}`,
+      data: {
+        transaction_id: createdTx.id,
+        company_id: company.id,
+        company_name: company.name,
+        amount,
+        energy_points: energyPoints,
+      },
+    });
+  } catch (e) {
+    // ignore notification failures
+  }
 
   res.status(200).json(
     new ApiResponse(

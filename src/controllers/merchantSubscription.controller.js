@@ -512,6 +512,11 @@ exports.redeemSubscription = asyncHandler(async (req, res) => {
     const updatedTotalUsed = Number(totalUsed) + 1;
     const updatedUsedThisMonth = null;
 
+    if (policy === 'total_uses' && Number.isInteger(maxTotalUses) && updatedTotalUsed >= maxTotalUses) {
+      // Mark as expired/exhausted immediately after the last allowed redemption.
+      await subscription.update({ status: 'expired' }, { transaction: t });
+    }
+
     return {
       subscription,
       plan,

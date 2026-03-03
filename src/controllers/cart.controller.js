@@ -2,6 +2,7 @@ const { Cart, CartItem, Product, Merchant, Store, Order, OrderItem, sequelize } 
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
+const { notifySuperadmins } = require('../services/notification.service');
 
 const sumDecimal = (value) => {
   const n = Number(value);
@@ -328,6 +329,27 @@ exports.checkoutCart = asyncHandler(async (req, res) => {
       cart: { id: newCart.id, status: newCart.status },
     };
   });
+
+  // Best-effort: superadmin realtime notification
+  try {
+    await notifySuperadmins({
+      type: 'order_placed',
+      title: 'New order placed',
+      message: `A customer placed ${result?.orderSummary?.ordersCount || 1} order(s) totaling ${result?.orderSummary?.currency || 'SAR'} ${result?.orderSummary?.total || 0}`,
+      data: {
+        orders: (result?.orders || []).map((o) => ({
+          id: o.id,
+          total: o.total,
+          merchant_id: o.merchant_id,
+          store_id: o.store_id,
+        })),
+        summary: result?.orderSummary,
+        user_id: req.user.id,
+      },
+    });
+  } catch (e) {
+    // ignore notification failures
+  }
 
   res.status(201).json(new ApiResponse(201, result, 'Checkout completed successfully'));
 });

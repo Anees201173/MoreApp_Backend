@@ -122,10 +122,12 @@ exports.createSubscription = asyncHandler(async (req, res) => {
     order: [['end_date', 'DESC']],
   });
 
-  // If user renews while still active, auto-extend starting after current end.
-  const start = latestActive
-    ? addDaysDateOnly(String(latestActive.end_date), 1)
-    : (requestedStart || today);
+  // Enforce purchase rules: user cannot buy again while still active
+  if (latestActive && String(latestActive.end_date) >= today) {
+    throw new ApiError(400, 'You already have an active subscription for this field');
+  }
+
+  const start = requestedStart || today;
 
   let monthsToAdd = 1;
   if (normalizedType === 'quarterly') monthsToAdd = 3;

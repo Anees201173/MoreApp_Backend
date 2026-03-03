@@ -32,6 +32,7 @@ const ProductWishlist = require('./ProductWishlist')
 const CompanyWalletTransaction = require('./CompanyWalletTransaction')
 const EnergyConversionSetting = require('./EnergyConversionSetting')
 const EmployeeDeleteVerification = require('./EmployeeDeleteVerification')
+const Notification = require('./Notification')
 const Country = require('./Country')
 const City = require('./City')
 
@@ -129,6 +130,19 @@ const defineAssociations = () => {
   EnergyConversionSetting.belongsTo(User, {
     foreignKey: 'updated_by_user_id',
     as: 'updatedBy',
+  });
+
+  // ============ User <--> Notifications ============//
+  User.hasMany(Notification, {
+    foreignKey: 'recipient_user_id',
+    as: 'notifications',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  Notification.belongsTo(User, {
+    foreignKey: 'recipient_user_id',
+    as: 'recipient',
   });
   // ============== User <--> Merchant ======= //
   // ========================================= //
@@ -750,6 +764,7 @@ module.exports = {
   Country,
   City,
   User,
+  Notification,
   Company,
   Merchant,
   EmployeeDeleteVerification,
