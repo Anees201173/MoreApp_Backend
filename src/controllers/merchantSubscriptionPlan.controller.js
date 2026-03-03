@@ -43,10 +43,23 @@ const getMerchantForUserOrThrow = async (req) => {
 exports.listPlans = asyncHandler(async (req, res) => {
   if (!req.user) throw new ApiError(401, 'Not authorized');
 
-  const { merchant_id, include_inactive } = req.query;
+  const { merchant_id, include_inactive, subscription_category_id, category_id } = req.query;
+
+  const effectiveCategoryIdRaw =
+    subscription_category_id !== undefined && subscription_category_id !== null && String(subscription_category_id).trim() !== ''
+      ? subscription_category_id
+      : category_id;
 
   const where = {};
   if (merchant_id) where.merchant_id = Number(merchant_id);
+
+  if (effectiveCategoryIdRaw !== undefined && effectiveCategoryIdRaw !== null && String(effectiveCategoryIdRaw).trim() !== '') {
+    const parsedCategoryId = Number(effectiveCategoryIdRaw);
+    if (!Number.isInteger(parsedCategoryId) || parsedCategoryId <= 0) {
+      throw new ApiError(400, 'subscription_category_id must be a positive integer');
+    }
+    where.subscription_category_id = parsedCategoryId;
+  }
 
   const role = req.user.role;
 
@@ -391,14 +404,47 @@ exports.subscribeToPlan = asyncHandler(async (req, res) => {
     order: [['end_date', 'DESC']],
   });
 
-  const start = latestActive
-    ? String(latestActive.start_date)
-    : (planStart && today < planStart ? planStart : today);
+  // Enforce purchase rules:
+  // - If there is an active subscription that hasn't expired yet, user cannot purchase again.
+  // - For voucher_policy=total_uses, user cannot purchase again while remaining uses exist.
+  if (latestActive) {
+    const activeEnd = String(latestActive.end_date);
+    const isTimeActive = activeEnd >= today;
 
-  const baseEnd = latestActive
-    ? addDaysDateOnly(String(latestActive.end_date), durationDays)
-    : addDaysDateOnly(start, durationDays);
+    const policyRaw = String(plan?.voucher_policy ?? 'unlimited').trim().toLowerCase();
+    const policy = policyRaw === 'monthly_uses' ? 'unlimited' : policyRaw;
 
+    if (policy === 'unlimited') {
+      if (isTimeActive) {
+        throw new ApiError(400, 'You already have an active subscription for this plan');
+      }
+    } else if (policy === 'total_uses') {
+      if (isTimeActive) {
+        const maxTotalUses = plan?.max_total_uses === undefined || plan?.max_total_uses === null
+          ? null
+          : Number(plan.max_total_uses);
+        if (!Number.isInteger(maxTotalUses) || maxTotalUses <= 0) {
+          throw new ApiError(400, 'Plan max_total_uses is invalid');
+        }
+
+        const totalUsed = await MerchantSubscriptionRedemption.count({
+          where: { subscription_id: latestActive.id },
+        });
+
+        if (Number(totalUsed) < maxTotalUses) {
+          throw new ApiError(400, 'You already have an active subscription for this plan with remaining uses');
+        }
+
+        // If uses are exhausted but status is still active, expire it so user can re-purchase
+        await latestActive.update({ status: 'expired' });
+      }
+    } else {
+      throw new ApiError(400, 'Subscription plan voucher policy is invalid');
+    }
+  }
+
+  const start = planStart && today < planStart ? planStart : today;
+  const baseEnd = addDaysDateOnly(start, durationDays);
   const end = planEnd ? (baseEnd > planEnd ? planEnd : baseEnd) : baseEnd;
 
   if (today > end) {
@@ -410,35 +456,23 @@ exports.subscribeToPlan = asyncHandler(async (req, res) => {
   const giftEnergyPoints = Number(plan.gift_energy_points ?? 0) || 0;
 
   const subscription = await sequelize.transaction(async (t) => {
-    let saved;
-
-    if (latestActive) {
-      if (String(latestActive.end_date) >= end) {
-        throw new ApiError(400, 'Cannot extend beyond the plan end date');
-      }
-
-      latestActive.end_date = end;
-      latestActive.duration_days = Math.max(1, diffDaysDateOnly(String(latestActive.start_date), end));
-      saved = await latestActive.save({ transaction: t });
-    } else {
-      saved = await MerchantSubscription.create(
-        {
-          merchant_id: plan.merchant_id,
-          user_id: req.user.id,
-          plan_id: plan.id,
-          title: String(plan.title).trim(),
-          description: plan.description ?? null,
-          photo_url: plan.photo_url ?? null,
-          price: plan.price,
-          duration_days: remainingDays,
-          type: 'monthly',
-          start_date: start,
-          end_date: end,
-          status: 'active',
-        },
-        { transaction: t }
-      );
-    }
+    const saved = await MerchantSubscription.create(
+      {
+        merchant_id: plan.merchant_id,
+        user_id: req.user.id,
+        plan_id: plan.id,
+        title: String(plan.title).trim(),
+        description: plan.description ?? null,
+        photo_url: plan.photo_url ?? null,
+        price: plan.price,
+        duration_days: remainingDays,
+        type: 'monthly',
+        start_date: start,
+        end_date: end,
+        status: 'active',
+      },
+      { transaction: t }
+    );
 
     if (giftEnergyPoints > 0) {
       await User.increment('energy_points_balance', {
@@ -451,5 +485,5 @@ exports.subscribeToPlan = asyncHandler(async (req, res) => {
     return saved;
   });
 
-  res.status(201).json(new ApiResponse(201, { subscription }, latestActive ? 'Subscription extended successfully' : 'Subscribed successfully'));
+  res.status(201).json(new ApiResponse(201, { subscription }, 'Subscribed successfully'));
 });

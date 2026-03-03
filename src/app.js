@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const http = require('http');
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -35,6 +36,9 @@ const wishlistRoutes = require('./routes/wishlist.routes');
 const subscriptionsRoutes = require('./routes/subscriptions.routes');
 const subscriptionCategoryRoutes = require('./routes/subscriptionCategory.routes');
 const locationRoutes = require('./routes/location.routes');
+const notificationRoutes = require('./routes/notification.routes');
+
+const { initSocket } = require('./realtime/socket');
 
 const app = express();
 
@@ -99,6 +103,7 @@ app.use('/api/v1/wishlist', wishlistRoutes)
 app.use('/api/v1/subscriptions', subscriptionsRoutes)
 app.use('/api/v1/subscription-categories', subscriptionCategoryRoutes)
 app.use('/api/v1/locations', locationRoutes)
+app.use('/api/v1/notifications', notificationRoutes)
 
 
 // 404 handler
@@ -113,11 +118,14 @@ const startServer = async () => {
     // Connect to database
     await connectDatabase();
 
-    // Start server
+    // Start server (HTTP) + realtime
     const port = config.port;
-    app.listen(port, () => {
+    const server = http.createServer(app);
+    initSocket(server);
+
+    server.listen(port, () => {
       console.log(` Server running on port ${port} in ${config.nodeEnv} mode`);
-      console.log(` Health check: http://localhost:${port}/health`);
+      console.log(` Health check: http://localhost:${port}/`);
     });
   } catch (error) {
     console.error(" Failed to start server:", error.message);
