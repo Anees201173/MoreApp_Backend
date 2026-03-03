@@ -8,6 +8,9 @@ const {
   updateUser,
   deleteUser,
   toggleUserStatus,
+  requestEmployeeDeleteCode,
+  verifyEmployeeDeleteCode,
+  deleteCompanyEmployee,
   searchUsers,
   searchCustomers,
   createCompanyEmployee,
@@ -160,6 +163,28 @@ router.post(
   authorize("companyadmin"),
   grantEnergyPointsValidation,
   grantEmployeeEnergyPoints
+);
+
+// Company admin delete employee with email verification
+router.post(
+  "/employees/:id/request-delete",
+  auth,
+  authorize("companyadmin"),
+  requestEmployeeDeleteCode
+);
+
+router.post(
+  "/employees/:id/verify-delete",
+  auth,
+  authorize("companyadmin"),
+  verifyEmployeeDeleteCode
+);
+
+router.delete(
+  "/employees/:id",
+  auth,
+  authorize("companyadmin"),
+  deleteCompanyEmployee
 );
 
 router.put("/:id", auth, authorize("superadmin", "user"), updateUser);

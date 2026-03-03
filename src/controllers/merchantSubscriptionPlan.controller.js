@@ -1,4 +1,4 @@
-const { MerchantSubscriptionPlan, MerchantSubscription, Merchant } = require('../models');
+const { MerchantSubscriptionPlan, MerchantSubscription, Merchant, User, SubscriptionCategory, sequelize } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
@@ -18,6 +18,14 @@ const addDaysDateOnly = (dateOnly, daysToAdd) => {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + Number(daysToAdd));
   return toDateOnlyString(dt);
+};
+
+const diffDaysDateOnly = (startDateOnly, endDateOnly) => {
+  const [sy, sm, sd] = String(startDateOnly).split('-').map(Number);
+  const [ey, em, ed] = String(endDateOnly).split('-').map(Number);
+  const s = Date.UTC(sy, sm - 1, sd);
+  const e = Date.UTC(ey, em - 1, ed);
+  return Math.floor((e - s) / (24 * 60 * 60 * 1000));
 };
 
 const getMerchantForUserOrThrow = async (req) => {
@@ -66,6 +74,11 @@ exports.listPlans = asyncHandler(async (req, res) => {
         as: 'merchant',
         attributes: ['id', 'name', 'address', 'phone'],
       },
+      {
+        model: SubscriptionCategory,
+        as: 'subscriptionCategory',
+        attributes: ['id', 'name', 'icon_url', 'is_active'],
+      },
     ],
   });
 
@@ -87,6 +100,11 @@ exports.getPlanById = asyncHandler(async (req, res) => {
         model: Merchant,
         as: 'merchant',
         attributes: ['id', 'name', 'address', 'phone'],
+      },
+      {
+        model: SubscriptionCategory,
+        as: 'subscriptionCategory',
+        attributes: ['id', 'name', 'icon_url', 'is_active'],
       },
     ],
   });
@@ -111,7 +129,31 @@ exports.getPlanById = asyncHandler(async (req, res) => {
 exports.createPlan = asyncHandler(async (req, res) => {
   const merchant = await getMerchantForUserOrThrow(req);
 
-  const { title, description, photo_url, price, duration_days, duration, is_active } = req.body;
+  const {
+    subscription_category_id,
+    title,
+    description,
+    photo_url,
+    price,
+    duration_days,
+    duration,
+    is_active,
+    gift_energy_points,
+    start_date,
+    end_date,
+    voucher_policy,
+    max_total_uses,
+  } = req.body;
+
+  const parsedCategoryId = Number(subscription_category_id);
+  if (!Number.isInteger(parsedCategoryId) || parsedCategoryId <= 0) {
+    throw new ApiError(400, 'subscription_category_id is required');
+  }
+
+  const category = await SubscriptionCategory.findByPk(parsedCategoryId);
+  if (!category || !category.is_active) {
+    throw new ApiError(400, 'Selected subscription category is not available');
+  }
 
   if (!title || !String(title).trim()) throw new ApiError(400, 'title is required');
   if (!description || !String(description).trim()) throw new ApiError(400, 'description is required');
@@ -122,18 +164,84 @@ exports.createPlan = asyncHandler(async (req, res) => {
   }
 
   const durationRaw = duration_days ?? duration;
-  const parsedDuration = Number(durationRaw);
-  if (!Number.isInteger(parsedDuration) || parsedDuration <= 0) {
-    throw new ApiError(400, 'duration is required and must be a positive integer (days)');
+  const parsedDuration =
+    durationRaw === undefined || durationRaw === null || String(durationRaw).trim() === ''
+      ? null
+      : Number(durationRaw);
+  if (parsedDuration !== null && (!Number.isInteger(parsedDuration) || parsedDuration <= 0)) {
+    throw new ApiError(400, 'duration must be a positive integer (days)');
   }
+
+  const giftRaw = gift_energy_points;
+  const parsedGiftEnergyPoints =
+    giftRaw === undefined || giftRaw === null || String(giftRaw).trim() === ''
+      ? 0
+      : Number(giftRaw);
+  if (!Number.isFinite(parsedGiftEnergyPoints) || parsedGiftEnergyPoints < 0 || !Number.isInteger(parsedGiftEnergyPoints)) {
+    throw new ApiError(400, 'gift_energy_points must be a non-negative integer');
+  }
+
+  const normalizedPolicyRaw =
+    voucher_policy === undefined || voucher_policy === null || String(voucher_policy).trim() === ''
+      ? 'unlimited'
+      : String(voucher_policy).trim().toLowerCase();
+  // Backwards compatibility: monthly_uses behaves as unlimited.
+  const normalizedPolicy = normalizedPolicyRaw === 'monthly_uses' ? 'unlimited' : normalizedPolicyRaw;
+  const allowedPolicies = new Set(['unlimited', 'total_uses']);
+  if (!allowedPolicies.has(normalizedPolicy)) {
+    throw new ApiError(400, 'voucher_policy must be one of: unlimited, total_uses');
+  }
+
+  const parsedMaxTotalUses =
+    max_total_uses === undefined || max_total_uses === null || String(max_total_uses).trim() === ''
+      ? null
+      : Number(max_total_uses);
+  if (parsedMaxTotalUses !== null && (!Number.isInteger(parsedMaxTotalUses) || parsedMaxTotalUses <= 0)) {
+    throw new ApiError(400, 'max_total_uses must be a positive integer');
+  }
+
+  if (normalizedPolicy === 'total_uses' && parsedMaxTotalUses === null) {
+    throw new ApiError(400, 'max_total_uses is required when voucher_policy is total_uses');
+  }
+
+  const normalizedStartDate = start_date && String(start_date).trim() ? toDateOnlyString(start_date) : null;
+  if (start_date && !normalizedStartDate) {
+    throw new ApiError(400, 'start_date is invalid');
+  }
+
+  const normalizedEndDate = end_date && String(end_date).trim() ? toDateOnlyString(end_date) : null;
+  if (end_date && !normalizedEndDate) {
+    throw new ApiError(400, 'end_date is invalid');
+  }
+
+  if (normalizedStartDate && normalizedEndDate) {
+    if (diffDaysDateOnly(normalizedStartDate, normalizedEndDate) <= 0) {
+      throw new ApiError(400, 'end_date must be after start_date');
+    }
+  }
+
+  if (parsedDuration === null && !(normalizedStartDate && normalizedEndDate)) {
+    throw new ApiError(400, 'duration is required (or provide both start_date and end_date)');
+  }
+
+  const durationDaysFinal = parsedDuration !== null
+    ? parsedDuration
+    : diffDaysDateOnly(normalizedStartDate, normalizedEndDate);
 
   const plan = await MerchantSubscriptionPlan.create({
     merchant_id: merchant.id,
+    subscription_category_id: parsedCategoryId,
     title: String(title).trim(),
     description: String(description).trim(),
     photo_url: photo_url && String(photo_url).trim() ? String(photo_url).trim() : null,
     price: parsedPrice,
-    duration_days: parsedDuration,
+    duration_days: durationDaysFinal,
+    gift_energy_points: parsedGiftEnergyPoints,
+    start_date: normalizedStartDate,
+    end_date: normalizedEndDate,
+    voucher_policy: normalizedPolicy,
+    max_total_uses: normalizedPolicy === 'total_uses' ? parsedMaxTotalUses : null,
+    max_uses_per_month: null,
     is_active: is_active === undefined ? true : Boolean(is_active),
   });
 
@@ -163,6 +271,13 @@ exports.getMyPlans = asyncHandler(async (req, res) => {
   const items = await MerchantSubscriptionPlan.findAll({
     where,
     order: [['id', 'DESC']],
+    include: [
+      {
+        model: SubscriptionCategory,
+        as: 'subscriptionCategory',
+        attributes: ['id', 'name', 'icon_url', 'is_active'],
+      },
+    ],
   });
 
   const planIds = items.map((p) => p.id).filter((id) => id !== undefined && id !== null);
@@ -249,6 +364,9 @@ exports.subscribeToPlan = asyncHandler(async (req, res) => {
 
   const today = toDateOnlyString(new Date());
 
+  const planStart = plan.start_date ? String(plan.start_date) : null;
+  const planEnd = plan.end_date ? String(plan.end_date) : null;
+
   // Auto-expire stale subs for this user/merchant
   await MerchantSubscription.update(
     { status: 'expired' },
@@ -262,7 +380,7 @@ exports.subscribeToPlan = asyncHandler(async (req, res) => {
     }
   );
 
-  // If user already has an active subscription for this plan, extend it by starting next day
+  // If user already has an active subscription for this plan, do not create a duplicate
   const latestActive = await MerchantSubscription.findOne({
     where: {
       merchant_id: plan.merchant_id,
@@ -273,23 +391,65 @@ exports.subscribeToPlan = asyncHandler(async (req, res) => {
     order: [['end_date', 'DESC']],
   });
 
-  const start = latestActive ? addDaysDateOnly(String(latestActive.end_date), 1) : today;
-  const end = addDaysDateOnly(start, durationDays);
+  const start = latestActive
+    ? String(latestActive.start_date)
+    : (planStart && today < planStart ? planStart : today);
 
-  const subscription = await MerchantSubscription.create({
-    merchant_id: plan.merchant_id,
-    user_id: req.user.id,
-    plan_id: plan.id,
-    title: String(plan.title).trim(),
-    description: plan.description ?? null,
-    photo_url: plan.photo_url ?? null,
-    price: plan.price,
-    duration_days: durationDays,
-    type: 'monthly',
-    start_date: start,
-    end_date: end,
-    status: 'active',
+  const baseEnd = latestActive
+    ? addDaysDateOnly(String(latestActive.end_date), durationDays)
+    : addDaysDateOnly(start, durationDays);
+
+  const end = planEnd ? (baseEnd > planEnd ? planEnd : baseEnd) : baseEnd;
+
+  if (today > end) {
+    throw new ApiError(400, 'This plan has expired');
+  }
+
+  const remainingDays = Math.max(1, diffDaysDateOnly(start, end));
+
+  const giftEnergyPoints = Number(plan.gift_energy_points ?? 0) || 0;
+
+  const subscription = await sequelize.transaction(async (t) => {
+    let saved;
+
+    if (latestActive) {
+      if (String(latestActive.end_date) >= end) {
+        throw new ApiError(400, 'Cannot extend beyond the plan end date');
+      }
+
+      latestActive.end_date = end;
+      latestActive.duration_days = Math.max(1, diffDaysDateOnly(String(latestActive.start_date), end));
+      saved = await latestActive.save({ transaction: t });
+    } else {
+      saved = await MerchantSubscription.create(
+        {
+          merchant_id: plan.merchant_id,
+          user_id: req.user.id,
+          plan_id: plan.id,
+          title: String(plan.title).trim(),
+          description: plan.description ?? null,
+          photo_url: plan.photo_url ?? null,
+          price: plan.price,
+          duration_days: remainingDays,
+          type: 'monthly',
+          start_date: start,
+          end_date: end,
+          status: 'active',
+        },
+        { transaction: t }
+      );
+    }
+
+    if (giftEnergyPoints > 0) {
+      await User.increment('energy_points_balance', {
+        by: giftEnergyPoints,
+        where: { id: req.user.id },
+        transaction: t,
+      });
+    }
+
+    return saved;
   });
 
-  res.status(201).json(new ApiResponse(201, { subscription }, 'Subscribed successfully'));
+  res.status(201).json(new ApiResponse(201, { subscription }, latestActive ? 'Subscription extended successfully' : 'Subscribed successfully'));
 });

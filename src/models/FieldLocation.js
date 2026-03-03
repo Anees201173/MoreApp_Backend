@@ -13,6 +13,14 @@ const FieldLocation = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    country_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    city_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     country: {
       type: DataTypes.STRING(100),
       allowNull: true,

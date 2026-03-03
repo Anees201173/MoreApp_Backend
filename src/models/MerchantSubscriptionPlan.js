@@ -19,6 +19,16 @@ const MerchantSubscriptionPlan = sequelize.define(
       onUpdate: 'CASCADE',
       onDelete: 'CASCADE',
     },
+    subscription_category_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'subscription_categories',
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
     title: {
       type: DataTypes.STRING(150),
       allowNull: false,
@@ -41,6 +51,41 @@ const MerchantSubscriptionPlan = sequelize.define(
     duration_days: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      validate: {
+        min: 1,
+      },
+    },
+    gift_energy_points: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: 0,
+      },
+    },
+    start_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    end_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    voucher_policy: {
+      type: DataTypes.STRING(30),
+      allowNull: false,
+      defaultValue: 'unlimited',
+    },
+    max_total_uses: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        min: 1,
+      },
+    },
+    max_uses_per_month: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
       validate: {
         min: 1,
       },

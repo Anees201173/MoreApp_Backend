@@ -1,4 +1,4 @@
-const { User, Company, Merchant, Post, PostRepost, sequelize } = require('../models');
+const { User, Company, Merchant, Post, PostRepost, EmployeeDeleteVerification, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -6,9 +6,60 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { getPagination, getPagingData } = require('../utils/pagination');
 const { sanitizeObject } = require('../utils/helpers')
+const crypto = require('crypto');
+const { sendEmail } = require('../utils/email');
 
 const EnergyConversionSetting = require('../models/EnergyConversionSetting');
 const CompanyWalletTransaction = require('../models/CompanyWalletTransaction');
+
+const sha256Hex = (value) =>
+  crypto.createHash('sha256').update(String(value)).digest('hex');
+
+const hmacSha256Hex = (value) => {
+  const secret =
+    process.env.EMPLOYEE_DELETE_OTP_SECRET ||
+    process.env.JWT_SECRET ||
+    'employee-delete-otp';
+  return crypto
+    .createHmac('sha256', secret)
+    .update(String(value))
+    .digest('hex');
+};
+
+const generate6DigitCode = () => {
+  const n = crypto.randomInt(0, 1_000_000);
+  return String(n).padStart(6, '0');
+};
+
+const requireCompanyForAdmin = async (adminUserId) => {
+  const company = await Company.findOne({ where: { admin_id: adminUserId } });
+  if (!company) {
+    throw new ApiError(404, 'Company not found for this admin');
+  }
+  return company;
+};
+
+const findCompanyEmployeeOrThrow = async ({ companyId, employeeId }) => {
+  const employee = await User.findByPk(employeeId);
+  if (!employee) {
+    throw new ApiError(404, 'Employee not found');
+  }
+
+  if (employee.role !== 'user') {
+    throw new ApiError(403, 'You can only delete employees');
+  }
+
+  if (!employee.company_id || Number(employee.company_id) !== Number(companyId)) {
+    throw new ApiError(403, 'You can only delete employees in your company');
+  }
+
+  const points = Number.parseFloat(employee.energy_points_balance ?? 0);
+  if (Number.isFinite(points) && points > 0) {
+    throw new ApiError(400, 'Cannot delete employee with energy points');
+  }
+
+  return employee;
+};
 
 // @desc    Update my profile (based on token)
 // @route   PUT /api/v1/user/me
@@ -722,6 +773,233 @@ const grantEmployeeEnergyPoints = asyncHandler(async (req, res) => {
   );
 });
 
+// @desc    Request delete verification code for an employee
+// @route   POST /api/v1/user/employees/:id/request-delete
+// @access  Private (companyadmin)
+const requestEmployeeDeleteCode = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'companyadmin') {
+    throw new ApiError(403, 'Not authorized');
+  }
+
+  const employeeId = Number(req.params.id);
+  if (!Number.isFinite(employeeId)) {
+    throw new ApiError(400, 'Invalid employee id');
+  }
+
+  const company = await requireCompanyForAdmin(req.user.id);
+  const employee = await findCompanyEmployeeOrThrow({
+    companyId: company.id,
+    employeeId,
+  });
+
+  const code = generate6DigitCode();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
+  const codeHash = hmacSha256Hex(`${company.id}:${req.user.id}:${employee.id}:${code}`);
+
+  const existing = await EmployeeDeleteVerification.findOne({
+    where: {
+      company_id: company.id,
+      company_admin_id: req.user.id,
+      employee_id: employee.id,
+      consumed_at: { [Op.is]: null },
+    },
+    order: [['created_at', 'DESC']],
+  });
+
+  const record = existing
+    ? await existing.update({
+        code_hash: codeHash,
+        expires_at: expiresAt,
+        attempts: 0,
+        verified_at: null,
+        delete_token_hash: null,
+        delete_token_expires_at: null,
+        consumed_at: null,
+      })
+    : await EmployeeDeleteVerification.create({
+        company_id: company.id,
+        company_admin_id: req.user.id,
+        employee_id: employee.id,
+        code_hash: codeHash,
+        expires_at: expiresAt,
+        attempts: 0,
+      });
+
+  await sendEmail({
+    to: company.email,
+    subject: 'Employee delete verification code',
+    html: `
+      <h2>Delete Employee Verification</h2>
+      <p>Hi <strong>${company.name}</strong>,</p>
+      <p>You requested to delete employee:</p>
+      <p><strong>${employee.name || employee.email}</strong></p>
+      <p>Your 6-digit verification code is:</p>
+
+      <div style="
+        font-size: 28px;
+        font-weight: bold;
+        background-color: #f3f4f6;
+        color: #111827;
+        padding: 12px 20px;
+        display: inline-block;
+        border-radius: 8px;
+        letter-spacing: 4px;
+        margin: 10px 0;
+      ">${code}</div>
+
+      <p>This code will expire in <strong>10 minutes</strong>.</p>
+      <p>If you didn’t request this, you can ignore this email.</p>
+      <br />
+      <p>MoreApp Team</p>
+    `,
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        verification_id: record.id,
+        expires_in_seconds: 10 * 60,
+        sent_to: company.email,
+      },
+      'Verification code sent'
+    )
+  );
+});
+
+// @desc    Verify delete code and issue one-time delete token
+// @route   POST /api/v1/user/employees/:id/verify-delete
+// @access  Private (companyadmin)
+const verifyEmployeeDeleteCode = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'companyadmin') {
+    throw new ApiError(403, 'Not authorized');
+  }
+
+  const employeeId = Number(req.params.id);
+  const { code, verification_id } = req.body || {};
+  const inputCode = String(code || '').trim();
+  const verificationId = Number(verification_id);
+
+  if (!Number.isFinite(employeeId)) {
+    throw new ApiError(400, 'Invalid employee id');
+  }
+  if (!Number.isFinite(verificationId)) {
+    throw new ApiError(400, 'verification_id is required');
+  }
+  if (!/^[0-9]{6}$/.test(inputCode)) {
+    throw new ApiError(400, 'Code must be 6 digits');
+  }
+
+  const company = await requireCompanyForAdmin(req.user.id);
+  await findCompanyEmployeeOrThrow({ companyId: company.id, employeeId });
+
+  const record = await EmployeeDeleteVerification.findOne({
+    where: {
+      id: verificationId,
+      company_id: company.id,
+      company_admin_id: req.user.id,
+      employee_id: employeeId,
+      consumed_at: { [Op.is]: null },
+    },
+  });
+
+  if (!record) {
+    throw new ApiError(404, 'Verification request not found');
+  }
+
+  const now = new Date();
+  if (record.expires_at && now > new Date(record.expires_at)) {
+    throw new ApiError(400, 'Verification code expired');
+  }
+
+  if ((record.attempts || 0) >= 5) {
+    throw new ApiError(429, 'Too many attempts. Please request a new code');
+  }
+
+  const expectedHash = hmacSha256Hex(`${company.id}:${req.user.id}:${employeeId}:${inputCode}`);
+  const matches = record.code_hash === expectedHash;
+
+  await record.update({ attempts: (record.attempts || 0) + 1 });
+  if (!matches) {
+    throw new ApiError(400, 'Invalid verification code');
+  }
+
+  const deleteToken = crypto.randomBytes(24).toString('hex');
+  const deleteTokenHash = sha256Hex(`${company.id}:${req.user.id}:${employeeId}:${deleteToken}`);
+  const deleteTokenExpiresAt = new Date(now.getTime() + 10 * 60 * 1000);
+
+  await record.update({
+    verified_at: now,
+    delete_token_hash: deleteTokenHash,
+    delete_token_expires_at: deleteTokenExpiresAt,
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        delete_token: deleteToken,
+        expires_in_seconds: 10 * 60,
+      },
+      'Verification successful'
+    )
+  );
+});
+
+// @desc    Delete an employee (companyadmin) using verified delete token
+// @route   DELETE /api/v1/user/employees/:id
+// @access  Private (companyadmin)
+const deleteCompanyEmployee = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'companyadmin') {
+    throw new ApiError(403, 'Not authorized');
+  }
+
+  const employeeId = Number(req.params.id);
+  if (!Number.isFinite(employeeId)) {
+    throw new ApiError(400, 'Invalid employee id');
+  }
+
+  const deleteToken = String(req.header('x-delete-token') || '').trim();
+  if (!deleteToken) {
+    throw new ApiError(400, 'Delete token is required');
+  }
+
+  const company = await requireCompanyForAdmin(req.user.id);
+  const employee = await findCompanyEmployeeOrThrow({
+    companyId: company.id,
+    employeeId,
+  });
+
+  const deleteTokenHash = sha256Hex(`${company.id}:${req.user.id}:${employeeId}:${deleteToken}`);
+  const record = await EmployeeDeleteVerification.findOne({
+    where: {
+      company_id: company.id,
+      company_admin_id: req.user.id,
+      employee_id: employeeId,
+      delete_token_hash: deleteTokenHash,
+      consumed_at: { [Op.is]: null },
+    },
+    order: [['created_at', 'DESC']],
+  });
+
+  if (!record) {
+    throw new ApiError(403, 'Invalid or missing delete verification');
+  }
+
+  const now = new Date();
+  if (!record.delete_token_expires_at || now > new Date(record.delete_token_expires_at)) {
+    throw new ApiError(400, 'Delete token expired');
+  }
+
+  await sequelize.transaction(async (t) => {
+    await employee.destroy({ transaction: t });
+    await record.update({ consumed_at: now }, { transaction: t });
+  });
+
+  res.status(200).json(new ApiResponse(200, null, 'Employee deleted successfully'));
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -732,6 +1010,9 @@ module.exports = {
   updateUser,
   deleteUser,
   toggleUserStatus,
+  requestEmployeeDeleteCode,
+  verifyEmployeeDeleteCode,
+  deleteCompanyEmployee,
   searchUsers,
   createCompanyEmployee,
   getCompanyEmployees,

@@ -6,7 +6,12 @@ const authorize = require('../middleware/authorize');
 const { getMerchantDashboard, getMerchantWallet, getSuperadminDashboard, getMerchantDashboardForAdmin } = require('../controllers/dashboard.controller');
 const { getCompanyWallet, depositCompanyWallet } = require('../controllers/companyWallet.controller');
 const { getEnergyConversion, updateEnergyConversion } = require('../controllers/energyConversion.controller');
-const { getSuperadminWalletOverview } = require('../controllers/superadminWallet.controller');
+const {
+	getSuperadminWalletOverview,
+	getPendingCompanyWalletDeposits,
+	approveCompanyWalletDeposit,
+	rejectCompanyWalletDeposit,
+} = require('../controllers/superadminWallet.controller');
 
 // Merchant dashboard (scoped to token)
 router.get('/merchant', auth, authorize('merchant'), getMerchantDashboard);
@@ -26,6 +31,26 @@ router.get('/company/energy-conversion', auth, authorize('companyadmin', 'supera
 
 // Superadmin wallet overview (company balances + recent deposits)
 router.get('/superadmin/wallet-overview', auth, authorize('superadmin'), getSuperadminWalletOverview);
+
+// Superadmin approvals for company wallet deposit requests
+router.get(
+	'/superadmin/wallet/pending-deposits',
+	auth,
+	authorize('superadmin'),
+	getPendingCompanyWalletDeposits
+);
+router.patch(
+	'/superadmin/wallet/transactions/:id/approve',
+	auth,
+	authorize('superadmin'),
+	approveCompanyWalletDeposit
+);
+router.patch(
+	'/superadmin/wallet/transactions/:id/reject',
+	auth,
+	authorize('superadmin'),
+	rejectCompanyWalletDeposit
+);
 
 // Merchant wallet (derived from bookings revenue)
 router.get('/merchant/wallet', auth, authorize('merchant'), getMerchantWallet);

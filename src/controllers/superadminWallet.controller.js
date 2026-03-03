@@ -1,11 +1,30 @@
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/db');
 
 const asyncHandler = require('../utils/asyncHandler');
+const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 
 const Company = require('../models/Company');
 const CompanyWalletTransaction = require('../models/CompanyWalletTransaction');
 const User = require('../models/User');
+
+const toInt = (v, fallback) => {
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+const toMoney = (value) => {
+  const num = Number.parseFloat(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num * 100) / 100;
+};
+
+const toPoints = (value) => {
+  const num = Number.parseFloat(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num * 100) / 100;
+};
 
 const extractEmployeeId = (description) => {
   if (!description) return null;
@@ -16,15 +35,43 @@ const extractEmployeeId = (description) => {
   return Number.isFinite(id) && id > 0 ? id : null;
 };
 
-const toInt = (v, fallback) => {
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-};
-
 const toNumber = (v) => {
   const n = Number.parseFloat(v);
   if (!Number.isFinite(n)) return 0;
   return n;
+};
+
+const normalizeTx = (t) => {
+  if (!t) return null;
+  return {
+    id: t.id,
+    company_id: t.company_id,
+    type: t.type,
+    status: t.status,
+    amount: toMoney(t.amount) ?? 0,
+    energy_points:
+      t.energy_points === null || t.energy_points === undefined
+        ? null
+        : (toPoints(t.energy_points) ?? 0),
+    description: t.description,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    company: t.company
+      ? {
+          id: t.company.id,
+          name: t.company.name,
+          email: t.company.email,
+        }
+      : undefined,
+    createdBy: t.createdBy
+      ? {
+          id: t.createdBy.id,
+          name: t.createdBy.name,
+          username: t.createdBy.username,
+          email: t.createdBy.email,
+        }
+      : undefined,
+  };
 };
 
 // @desc   Superadmin wallet overview (company balances + recent transactions)
@@ -122,5 +169,164 @@ exports.getSuperadminWalletOverview = asyncHandler(async (req, res) => {
       },
       'Superadmin wallet overview retrieved successfully'
     )
+  );
+});
+
+// @desc   Superadmin: list pending company wallet deposit requests
+// @route  GET /api/v1/dashboard/superadmin/wallet/pending-deposits?page=1&size=20&search=
+// @access Private (superadmin)
+exports.getPendingCompanyWalletDeposits = asyncHandler(async (req, res) => {
+  const page = toInt(req.query?.page, 1);
+  const size = Math.min(toInt(req.query?.size, 20), 100);
+  const search = (req.query?.search || '').trim();
+
+  const offset = (page - 1) * size;
+
+  const companyWhere = {};
+  if (search) {
+    companyWhere[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { email: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
+
+  const result = await CompanyWalletTransaction.findAndCountAll({
+    where: { type: 'deposit', status: 'pending' },
+    include: [
+      {
+        model: Company,
+        as: 'company',
+        attributes: ['id', 'name', 'email'],
+        where: companyWhere,
+        required: true,
+      },
+      {
+        model: User,
+        as: 'createdBy',
+        attributes: ['id', 'name', 'username', 'email'],
+        required: false,
+      },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: size,
+    offset,
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        items: result.rows.map(normalizeTx),
+        pagination: {
+          page,
+          size,
+          totalItems: result.count,
+          totalPages: Math.ceil(result.count / size),
+        },
+      },
+      'Pending deposit requests retrieved successfully'
+    )
+  );
+});
+
+// @desc   Superadmin: approve a pending company wallet deposit
+// @route  PATCH /api/v1/dashboard/superadmin/wallet/transactions/:id/approve
+// @access Private (superadmin)
+exports.approveCompanyWalletDeposit = asyncHandler(async (req, res) => {
+  const id = Number.parseInt(req.params?.id, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new ApiError(400, 'Invalid transaction id');
+  }
+
+  let updatedTx = null;
+  let updatedCompany = null;
+
+  await sequelize.transaction(async (t) => {
+    const tx = await CompanyWalletTransaction.findOne({
+      where: { id },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    if (!tx) throw new ApiError(404, 'Transaction not found');
+    if (tx.type !== 'deposit') throw new ApiError(400, 'Only deposit transactions can be approved');
+    if (tx.status !== 'pending') throw new ApiError(400, 'Only pending transactions can be approved');
+
+    const amount = toMoney(tx.amount);
+    if (amount === null || amount <= 0) {
+      throw new ApiError(400, 'Invalid transaction amount');
+    }
+
+    const energyPoints = tx.energy_points === null || tx.energy_points === undefined ? 0 : (toPoints(tx.energy_points) ?? 0);
+
+    await Company.increment('wallet_balance', {
+      by: amount,
+      where: { id: tx.company_id },
+      transaction: t,
+    });
+
+    await Company.increment('energy_points_balance', {
+      by: energyPoints,
+      where: { id: tx.company_id },
+      transaction: t,
+    });
+
+    await tx.update({ status: 'approved' }, { transaction: t });
+
+    updatedTx = await CompanyWalletTransaction.findByPk(id, {
+      transaction: t,
+      include: [
+        { model: Company, as: 'company', attributes: ['id', 'name', 'email'], required: false },
+        { model: User, as: 'createdBy', attributes: ['id', 'name', 'username', 'email'], required: false },
+      ],
+    });
+
+    updatedCompany = await Company.findByPk(tx.company_id, {
+      transaction: t,
+      attributes: ['id', 'wallet_balance', 'energy_points_balance'],
+    });
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        transaction: normalizeTx(updatedTx),
+        companyWallet: {
+          company_id: updatedCompany?.id,
+          balance: toMoney(updatedCompany?.wallet_balance) ?? 0,
+          energy_points_balance: toPoints(updatedCompany?.energy_points_balance) ?? 0,
+        },
+      },
+      'Deposit approved successfully'
+    )
+  );
+});
+
+// @desc   Superadmin: reject a pending company wallet deposit
+// @route  PATCH /api/v1/dashboard/superadmin/wallet/transactions/:id/reject
+// @access Private (superadmin)
+exports.rejectCompanyWalletDeposit = asyncHandler(async (req, res) => {
+  const id = Number.parseInt(req.params?.id, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new ApiError(400, 'Invalid transaction id');
+  }
+
+  const tx = await CompanyWalletTransaction.findOne({ where: { id } });
+  if (!tx) throw new ApiError(404, 'Transaction not found');
+  if (tx.type !== 'deposit') throw new ApiError(400, 'Only deposit transactions can be rejected');
+  if (tx.status !== 'pending') throw new ApiError(400, 'Only pending transactions can be rejected');
+
+  await tx.update({ status: 'rejected' });
+
+  const enriched = await CompanyWalletTransaction.findByPk(id, {
+    include: [
+      { model: Company, as: 'company', attributes: ['id', 'name', 'email'], required: false },
+      { model: User, as: 'createdBy', attributes: ['id', 'name', 'username', 'email'], required: false },
+    ],
+  });
+
+  res.status(200).json(
+    new ApiResponse(200, { transaction: normalizeTx(enriched) }, 'Deposit rejected successfully')
   );
 });

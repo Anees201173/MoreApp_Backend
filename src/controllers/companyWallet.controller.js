@@ -51,6 +51,23 @@ exports.getCompanyWallet = asyncHandler(async (req, res) => {
     limit,
   });
 
+  const [pendingDepositAmount, pendingDepositEnergyPoints] = await Promise.all([
+    CompanyWalletTransaction.sum('amount', {
+      where: {
+        company_id: company.id,
+        type: 'deposit',
+        status: 'pending',
+      },
+    }),
+    CompanyWalletTransaction.sum('energy_points', {
+      where: {
+        company_id: company.id,
+        type: 'deposit',
+        status: 'pending',
+      },
+    }),
+  ]);
+
   const employeeIds = Array.from(
     new Set(transactions.map((t) => extractEmployeeId(t.description)).filter(Boolean))
   );
@@ -67,6 +84,11 @@ exports.getCompanyWallet = asyncHandler(async (req, res) => {
 
   const balance = toMoney(company.wallet_balance) ?? 0;
   const energyPointsBalance = toPoints(company.energy_points_balance) ?? 0;
+  const pendingBalance = toMoney(pendingDepositAmount) ?? 0;
+  const pendingEnergyPointsBalance =
+    pendingDepositEnergyPoints === null || pendingDepositEnergyPoints === undefined
+      ? 0
+      : (toPoints(pendingDepositEnergyPoints) ?? 0);
 
   res.status(200).json(
     new ApiResponse(
@@ -75,6 +97,8 @@ exports.getCompanyWallet = asyncHandler(async (req, res) => {
         wallet: {
           balance,
           energy_points_balance: energyPointsBalance,
+          pending_balance: pendingBalance,
+          pending_energy_points_balance: pendingEnergyPointsBalance,
         },
         transactions: transactions.map((t) => ({
           id: t.id,
@@ -122,42 +146,24 @@ exports.depositCompanyWallet = asyncHandler(async (req, res) => {
 
   let createdTx = null;
 
-  await sequelize.transaction(async (t) => {
-    await Company.increment('wallet_balance', {
-      by: amount,
-      where: { id: company.id },
-      transaction: t,
-    });
-
-    await Company.increment('energy_points_balance', {
-      by: energyPoints,
-      where: { id: company.id },
-      transaction: t,
-    });
-
-    createdTx = await CompanyWalletTransaction.create(
-      {
-        company_id: company.id,
-        created_by_user_id: req.user.id,
-        type: 'deposit',
-        status: 'approved',
-        amount,
-        energy_points: energyPoints,
-        description: description || 'Wallet deposit',
-      },
-      { transaction: t }
-    );
+  // Deposit requests must be approved by a superadmin before affecting balances.
+  createdTx = await CompanyWalletTransaction.create({
+    company_id: company.id,
+    created_by_user_id: req.user.id,
+    type: 'deposit',
+    status: 'pending',
+    amount,
+    energy_points: energyPoints,
+    description: description || 'Wallet deposit',
   });
-
-  const updatedCompany = await Company.findByPk(company.id);
 
   res.status(200).json(
     new ApiResponse(
       200,
       {
         wallet: {
-          balance: toMoney(updatedCompany.wallet_balance) ?? 0,
-          energy_points_balance: toPoints(updatedCompany.energy_points_balance) ?? 0,
+          balance: toMoney(company.wallet_balance) ?? 0,
+          energy_points_balance: toPoints(company.energy_points_balance) ?? 0,
         },
         transaction: {
           id: createdTx.id,
@@ -169,7 +175,7 @@ exports.depositCompanyWallet = asyncHandler(async (req, res) => {
           createdAt: createdTx.createdAt,
         },
       },
-      'Deposit successful'
+      'Deposit request submitted for approval'
     )
   );
 });

@@ -1,4 +1,11 @@
-const { MerchantSubscription, MerchantSubscriptionPlan, Merchant, User } = require('../models');
+const {
+  MerchantSubscription,
+  MerchantSubscriptionPlan,
+  MerchantSubscriptionRedemption,
+  Merchant,
+  User,
+  sequelize,
+} = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
@@ -419,4 +426,112 @@ exports.cancelMySubscription = asyncHandler(async (req, res) => {
   await subscription.save();
 
   res.status(200).json(new ApiResponse(200, { subscription }, 'Subscription cancelled successfully'));
+});
+
+// @desc    Merchant redeems a subscription voucher usage
+// @route   POST /api/v1/subscriptions/:id/redeem
+// @access  Private (merchant only)
+exports.redeemSubscription = asyncHandler(async (req, res) => {
+  const merchant = await getMerchantForUserOrThrow(req);
+
+  const subscriptionId = Number(req.params.id);
+  if (!Number.isInteger(subscriptionId) || subscriptionId <= 0) {
+    throw new ApiError(400, 'Invalid subscription id');
+  }
+
+  const now = new Date();
+  const today = toDateOnlyString(now);
+
+  const result = await sequelize.transaction(async (t) => {
+    const subscription = await MerchantSubscription.findByPk(subscriptionId, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    if (!subscription) throw new ApiError(404, 'Subscription not found');
+    if (Number(subscription.merchant_id) !== Number(merchant.id)) {
+      throw new ApiError(403, 'You can only redeem subscriptions issued by you');
+    }
+
+    // Ensure subscription is currently valid
+    if (subscription.status !== 'active') {
+      throw new ApiError(400, `Cannot redeem a ${subscription.status} subscription`);
+    }
+    if (String(subscription.start_date) > today) {
+      throw new ApiError(400, 'Subscription has not started yet');
+    }
+    if (String(subscription.end_date) < today) {
+      // keep status accurate
+      subscription.status = 'expired';
+      await subscription.save({ transaction: t });
+      throw new ApiError(400, 'Subscription has expired');
+    }
+
+    let plan = null;
+    if (subscription.plan_id) {
+      plan = await MerchantSubscriptionPlan.findByPk(subscription.plan_id, { transaction: t });
+    }
+
+    const policyRaw = String(plan?.voucher_policy ?? 'unlimited').trim().toLowerCase();
+    // "monthly" subscriptions should be unlimited access like a gym membership.
+    // Backwards compatibility: monthly_uses behaves as unlimited.
+    const policy = policyRaw === 'monthly_uses' ? 'unlimited' : policyRaw;
+    const allowedPolicies = new Set(['unlimited', 'total_uses']);
+    if (!allowedPolicies.has(policy)) {
+      throw new ApiError(400, 'Subscription plan voucher policy is invalid');
+    }
+
+    const totalUsed = await MerchantSubscriptionRedemption.count({
+      where: { subscription_id: subscription.id },
+      transaction: t,
+    });
+
+    const maxTotalUses = plan?.max_total_uses === undefined || plan?.max_total_uses === null
+      ? null
+      : Number(plan.max_total_uses);
+
+    if (policy === 'total_uses') {
+      if (!Number.isInteger(maxTotalUses) || maxTotalUses <= 0) {
+        throw new ApiError(400, 'Plan max_total_uses must be a positive integer');
+      }
+      if (Number(totalUsed) >= maxTotalUses) {
+        throw new ApiError(400, 'No remaining voucher uses for this subscription');
+      }
+    }
+
+    const redemption = await MerchantSubscriptionRedemption.create(
+      {
+        subscription_id: subscription.id,
+        merchant_id: merchant.id,
+        user_id: subscription.user_id,
+        redeemed_at: now,
+      },
+      { transaction: t }
+    );
+
+    const updatedTotalUsed = Number(totalUsed) + 1;
+    const updatedUsedThisMonth = null;
+
+    return {
+      subscription,
+      plan,
+      redemption,
+      usage: {
+        policy,
+        total_used: updatedTotalUsed,
+        used_this_month: updatedUsedThisMonth,
+        max_total_uses: maxTotalUses,
+        max_uses_per_month: null,
+        remaining_total_uses:
+          policy === 'total_uses' && Number.isInteger(maxTotalUses)
+            ? Math.max(0, maxTotalUses - updatedTotalUsed)
+            : null,
+        remaining_monthly_uses: null,
+      },
+    };
+  });
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, result, 'Subscription redeemed successfully'));
 });

@@ -12,6 +12,7 @@ const {
   getMyIssuedSubscriptions,
   cancelSubscription,
   cancelMySubscription,
+  redeemSubscription,
 } = require('../controllers/merchantSubscription.controller');
 
 const {
@@ -36,6 +37,7 @@ router.get('/user/:userId', auth, getSubscriptionsForUser);
 // Merchant endpoints
 router.get('/merchant/me', auth, authorize('merchant'), getMyIssuedSubscriptions);
 router.patch('/:id/cancel', auth, authorize('merchant'), cancelSubscription);
+router.post('/:id/redeem', auth, authorize('merchant'), redeemSubscription);
 
 // User endpoints
 router.patch('/:id/cancel-me', auth, cancelMySubscription);

@@ -16,6 +16,8 @@ const Company = require('./Company')
 const Merchant = require('./Marchant')
 const MerchantSubscription = require('./MerchantSubscription')
 const MerchantSubscriptionPlan = require('./MerchantSubscriptionPlan')
+const MerchantSubscriptionRedemption = require('./MerchantSubscriptionRedemption')
+const SubscriptionCategory = require('./SubscriptionCategory')
 const Category = require('./Category')
 const Product = require('./Product')
 const Store = require('./Store')
@@ -29,11 +31,29 @@ const PostRepost = require('./PostRepost')
 const ProductWishlist = require('./ProductWishlist')
 const CompanyWalletTransaction = require('./CompanyWalletTransaction')
 const EnergyConversionSetting = require('./EnergyConversionSetting')
+const EmployeeDeleteVerification = require('./EmployeeDeleteVerification')
+const Country = require('./Country')
+const City = require('./City')
 
 
 
 // Define model associations
 const defineAssociations = () => {
+
+  // =======================================================
+  //   COUNTRIES <-> CITIES
+  // =======================================================
+  Country.hasMany(City, {
+    foreignKey: 'country_id',
+    as: 'cities',
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE',
+  });
+
+  City.belongsTo(Country, {
+    foreignKey: 'country_id',
+    as: 'country',
+  });
 
   // ============ User <--> Company ============//
   // ==========================================//
@@ -210,6 +230,16 @@ const defineAssociations = () => {
   FieldLocation.belongsTo(Field, {
     foreignKey: 'field_id',
     as: 'field',
+  });
+
+  FieldLocation.belongsTo(Country, {
+    foreignKey: 'country_id',
+    as: 'countryRef',
+  });
+
+  FieldLocation.belongsTo(City, {
+    foreignKey: 'city_id',
+    as: 'cityRef',
   });
 
   // =======================================================
@@ -493,6 +523,60 @@ const defineAssociations = () => {
   });
 
   // =======================================================
+  //   SUBSCRIPTION CATEGORY <-> MERCHANT SUBSCRIPTION PLANS
+  // =======================================================
+  SubscriptionCategory.hasMany(MerchantSubscriptionPlan, {
+    foreignKey: 'subscription_category_id',
+    as: 'subscriptionPlans',
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscriptionPlan.belongsTo(SubscriptionCategory, {
+    foreignKey: 'subscription_category_id',
+    as: 'subscriptionCategory',
+  });
+
+  // =======================================================
+  //   MERCHANT SUBSCRIPTION REDEMPTIONS
+  // =======================================================
+  MerchantSubscription.hasMany(MerchantSubscriptionRedemption, {
+    foreignKey: 'subscription_id',
+    as: 'redemptions',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscriptionRedemption.belongsTo(MerchantSubscription, {
+    foreignKey: 'subscription_id',
+    as: 'subscription',
+  });
+
+  Merchant.hasMany(MerchantSubscriptionRedemption, {
+    foreignKey: 'merchant_id',
+    as: 'subscriptionRedemptions',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscriptionRedemption.belongsTo(Merchant, {
+    foreignKey: 'merchant_id',
+    as: 'merchant',
+  });
+
+  User.hasMany(MerchantSubscriptionRedemption, {
+    foreignKey: 'user_id',
+    as: 'subscriptionRedemptions',
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  });
+
+  MerchantSubscriptionRedemption.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user',
+  });
+
+  // =======================================================
   //   FIELD <-> ADDONS
   // =======================================================
   Field.hasMany(Addon, {
@@ -663,11 +747,16 @@ defineAssociations();
 module.exports = {
   sequelize,
   Sequelize,
+  Country,
+  City,
   User,
   Company,
   Merchant,
+  EmployeeDeleteVerification,
   MerchantSubscription,
   MerchantSubscriptionPlan,
+  MerchantSubscriptionRedemption,
+  SubscriptionCategory,
   Category,
   Product,
   Post,

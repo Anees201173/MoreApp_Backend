@@ -4,6 +4,8 @@ const {
   FieldCategory,
   FieldAvailability,
   FieldLocation,
+  Country,
+  City,
   FieldSubscriptionPlan,
   Addon,
   User,
@@ -165,6 +167,49 @@ exports.createField = asyncHandler(async (req, res) => {
   const result = await sequelize.transaction(async (t) => {
     const locationItems = parseLocations(locations);
 
+    const resolveCountryAndCity = async ({ country_id, city_id, country, city }) => {
+      const parsedCountryId = country_id !== undefined && country_id !== null && String(country_id).trim() !== ''
+        ? Number(country_id)
+        : null;
+      const parsedCityId = city_id !== undefined && city_id !== null && String(city_id).trim() !== ''
+        ? Number(city_id)
+        : null;
+
+      let countryRef = null;
+      let cityRef = null;
+
+      if (Number.isFinite(parsedCityId)) {
+        cityRef = await City.findByPk(parsedCityId, { transaction: t });
+        if (!cityRef || cityRef.is_active === false) {
+          throw new ApiError(400, 'Selected city is invalid or inactive');
+        }
+      }
+
+      let effectiveCountryId = Number.isFinite(parsedCountryId) ? parsedCountryId : null;
+      if (cityRef && !effectiveCountryId) effectiveCountryId = cityRef.country_id;
+
+      if (Number.isFinite(effectiveCountryId)) {
+        countryRef = await Country.findByPk(effectiveCountryId, { transaction: t });
+        if (!countryRef || countryRef.is_active === false) {
+          throw new ApiError(400, 'Selected country is invalid or inactive');
+        }
+      }
+
+      if (cityRef && countryRef && Number(cityRef.country_id) !== Number(countryRef.id)) {
+        throw new ApiError(400, 'Selected city does not belong to selected country');
+      }
+
+      const countryName = countryRef?.name || (country !== undefined && country !== null ? String(country).trim() : null) || null;
+      const cityName = cityRef?.name || (city !== undefined && city !== null ? String(city).trim() : null) || null;
+
+      return {
+        country_id: countryRef ? countryRef.id : (Number.isFinite(parsedCountryId) ? parsedCountryId : null),
+        city_id: cityRef ? cityRef.id : (Number.isFinite(parsedCityId) ? parsedCityId : null),
+        country: countryName,
+        city: cityName,
+      };
+    };
+
     const field = await Field.create(
       {
         title: title.trim(),
@@ -201,13 +246,28 @@ exports.createField = asyncHandler(async (req, res) => {
 
         return {
           field_id: field.id,
+          country_id: loc?.country_id ?? loc?.countryId ?? null,
+          city_id: loc?.city_id ?? loc?.cityId ?? null,
           country: countryVal || null,
           city: cityVal || null,
           location_url: urlVal,
         };
       });
 
-      await FieldLocation.bulkCreate(rows, { transaction: t });
+      const resolvedRows = [];
+      for (const r of rows) {
+        const resolved = await resolveCountryAndCity(r);
+        resolvedRows.push({
+          field_id: r.field_id,
+          country_id: resolved.country_id,
+          city_id: resolved.city_id,
+          country: resolved.country,
+          city: resolved.city,
+          location_url: r.location_url,
+        });
+      }
+
+      await FieldLocation.bulkCreate(resolvedRows, { transaction: t });
     }
 
     if (availability && availability.length) {
@@ -463,7 +523,7 @@ exports.getFieldsByCategory = asyncHandler(async (req, res) => {
           model: FieldLocation,
           as: 'locations',
           required: false,
-          attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
+          attributes: ['id', 'country_id', 'city_id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
         },
       ],
     });
@@ -482,7 +542,7 @@ exports.getFieldsByCategory = asyncHandler(async (req, res) => {
         model: FieldLocation,
         as: 'locations',
         required: false,
-        attributes: ['id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
+        attributes: ['id', 'country_id', 'city_id', 'country', 'city', 'location_url', 'created_at', 'updated_at'],
       },
     ],
   });

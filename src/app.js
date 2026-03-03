@@ -33,6 +33,8 @@ const cartRoutes = require('./routes/cart.routes');
 const ordersRoutes = require('./routes/orders.routes');
 const wishlistRoutes = require('./routes/wishlist.routes');
 const subscriptionsRoutes = require('./routes/subscriptions.routes');
+const subscriptionCategoryRoutes = require('./routes/subscriptionCategory.routes');
+const locationRoutes = require('./routes/location.routes');
 
 const app = express();
 
@@ -95,6 +97,8 @@ app.use('/api/v1/cart', cartRoutes)
 app.use('/api/v1/orders', ordersRoutes)
 app.use('/api/v1/wishlist', wishlistRoutes)
 app.use('/api/v1/subscriptions', subscriptionsRoutes)
+app.use('/api/v1/subscription-categories', subscriptionCategoryRoutes)
+app.use('/api/v1/locations', locationRoutes)
 
 
 // 404 handler

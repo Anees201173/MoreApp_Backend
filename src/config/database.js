@@ -15,13 +15,13 @@ const normalizeDbUrl = (raw) => {
   return url;
 };
 
-const getConnection = () => {
-  const url = normalizeDbUrl(process.env.DB_URL || process.env.DATABASE_URL);
+const resolvedUrl = normalizeDbUrl(process.env.DB_URL || process.env.DATABASE_URL);
 
-  if (url) {
+const getConnection = () => {
+  if (resolvedUrl) {
     return {
       use_env_variable: null,
-      url,
+      url: resolvedUrl,
     };
   }
 
@@ -37,10 +37,12 @@ const getConnection = () => {
 const base = {
   dialect: "postgres",
   dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
+    // Match runtime behavior in src/config/db.js:
+    // - If using a hosted DB URL (e.g. Neon), enable SSL
+    // - If using localhost DB_* vars, disable SSL
+    ssl: resolvedUrl
+      ? { require: true, rejectUnauthorized: false }
+      : false,
   },
   define: {
     timestamps: true,
