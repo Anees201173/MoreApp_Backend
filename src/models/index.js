@@ -133,6 +133,7 @@ const defineAssociations = () => {
     as: 'updatedBy',
   });
 
+<<<<<<< HEAD
   // ============ Energy Earning Policies ============//
   EnergyEarningPolicy.hasMany(Merchant, {
     foreignKey: 'energy_earning_policy_id',
@@ -146,6 +147,8 @@ const defineAssociations = () => {
     as: 'energyPolicy',
   });
 
+=======
+>>>>>>> 3c130780feafcb4927370d9317e1c856bfd7df03
   // ============ User <--> Notifications ============//
   User.hasMany(Notification, {
     foreignKey: 'recipient_user_id',
