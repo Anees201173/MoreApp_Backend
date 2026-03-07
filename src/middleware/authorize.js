@@ -7,7 +7,14 @@ const authorize = (...roles) => {
       return next(new ApiError(401, 'Not authorized to access this route'));
     }
 
-    if (!roles.includes(req.user.role)) {
+    const allowedRoles = roles
+      .flat()
+      .filter((r) => r !== null && r !== undefined)
+      .map((r) => String(r).trim().toLowerCase());
+
+    const userRole = String(req.user.role).trim().toLowerCase();
+
+    if (!allowedRoles.includes(userRole)) {
       return next(new ApiError(403, `User role ${req.user.role} is not authorized`));
     }
 

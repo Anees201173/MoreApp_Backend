@@ -59,6 +59,15 @@ const Order = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+    earned_energy_points: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
+    energy_points_awarded_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     tableName: 'orders',

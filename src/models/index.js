@@ -31,6 +31,7 @@ const PostRepost = require('./PostRepost')
 const ProductWishlist = require('./ProductWishlist')
 const CompanyWalletTransaction = require('./CompanyWalletTransaction')
 const EnergyConversionSetting = require('./EnergyConversionSetting')
+const EnergyEarningPolicy = require('./EnergyEarningPolicy')
 const EmployeeDeleteVerification = require('./EmployeeDeleteVerification')
 const Notification = require('./Notification')
 const Country = require('./Country')
@@ -130,6 +131,19 @@ const defineAssociations = () => {
   EnergyConversionSetting.belongsTo(User, {
     foreignKey: 'updated_by_user_id',
     as: 'updatedBy',
+  });
+
+  // ============ Energy Earning Policies ============//
+  EnergyEarningPolicy.hasMany(Merchant, {
+    foreignKey: 'energy_earning_policy_id',
+    as: 'merchants',
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE',
+  });
+
+  Merchant.belongsTo(EnergyEarningPolicy, {
+    foreignKey: 'energy_earning_policy_id',
+    as: 'energyPolicy',
   });
 
   // ============ User <--> Notifications ============//
@@ -767,6 +781,7 @@ module.exports = {
   Notification,
   Company,
   Merchant,
+  EnergyEarningPolicy,
   EmployeeDeleteVerification,
   MerchantSubscription,
   MerchantSubscriptionPlan,

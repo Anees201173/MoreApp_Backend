@@ -1,7 +1,13 @@
-const { Order, OrderItem, Merchant, Store, User } = require('../models');
+const { Order, OrderItem, Merchant, Store, User, sequelize } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
+
+const {
+  getPointsPerSar,
+  computeEarnedPoints,
+  getMerchantPolicy,
+} = require('../services/energyEarning.service');
 
 const sumDecimal = (value) => {
   const n = Number(value);
@@ -120,12 +126,43 @@ exports.updateOrderStatus = asyncHandler(async (req, res) => {
   const merchant = await Merchant.findOne({ where: { user_id: req.user.id } });
   if (!merchant) throw new ApiError(404, 'Merchant profile not found for current user');
 
-  const order = await Order.findByPk(id);
-  if (!order) throw new ApiError(404, 'Order not found');
-  if (order.merchant_id !== merchant.id) throw new ApiError(403, 'You are not allowed to update this order');
+  const updated = await sequelize.transaction(async (t) => {
+    const order = await Order.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (order.merchant_id !== merchant.id) throw new ApiError(403, 'You are not allowed to update this order');
 
-  order.status = status;
-  await order.save();
+    const prevStatus = order.status;
+    order.status = status;
 
-  res.status(200).json(new ApiResponse(200, { order }, 'Order status updated successfully'));
+    const awardStatuses = new Set(['paid', 'completed']);
+    const wasEligible = awardStatuses.has(prevStatus);
+    const isEligible = awardStatuses.has(status);
+
+    if (isEligible && !wasEligible && !order.energy_points_awarded_at) {
+      const policy = await getMerchantPolicy(order.merchant_id, t);
+      const pointsPerSar = await getPointsPerSar(t);
+      const earned = computeEarnedPoints({
+        amountSar: order.total,
+        pointsPerSar,
+        percent: policy.percent_ecommerce,
+      });
+
+      if (earned > 0) {
+        await User.increment('energy_points_balance', {
+          by: earned,
+          where: { id: order.user_id },
+          transaction: t,
+        });
+      }
+
+      order.earned_energy_points = earned;
+      // Mark as awarded even if earned=0 to avoid retroactive grants.
+      order.energy_points_awarded_at = new Date();
+    }
+
+    await order.save({ transaction: t });
+    return order;
+  });
+
+  res.status(200).json(new ApiResponse(200, { order: updated }, 'Order status updated successfully'));
 });

@@ -80,6 +80,10 @@ const Merchant = sequelize.define(
       defaultValue: true,
       allowNull: false,
     },
+    energy_earning_policy_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
   },
   {
     tableName: "merchants",

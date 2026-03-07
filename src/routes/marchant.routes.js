@@ -52,6 +52,10 @@ const createValidators = [
         .trim()
         .notEmpty().withMessage('Address is required'),
 
+    body('energy_earning_policy_id')
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1 }).withMessage('energy_earning_policy_id must be a positive integer'),
+
     body('admin_id')
         .optional()
         .isInt().withMessage('Admin ID must be an integer')
@@ -73,6 +77,10 @@ const updateValidators = [
         .optional({ checkFalsy: true })
         .trim()
         .isLength({ min: 5 }).withMessage('Address must be at least 5 characters long'),
+
+    body('energy_earning_policy_id')
+        .optional({ checkFalsy: true })
+        .isInt({ min: 1 }).withMessage('energy_earning_policy_id must be a positive integer'),
 
     body('admin_id')
         .optional()

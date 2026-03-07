@@ -14,6 +14,12 @@ const toInt = (v, fallback) => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
+const toMaybePositiveInt = (v) => {
+  if (v === undefined || v === null || String(v).trim() === '') return null;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
 const toMoney = (value) => {
   const num = Number.parseFloat(value);
   if (!Number.isFinite(num)) return null;
@@ -225,6 +231,158 @@ exports.getPendingCompanyWalletDeposits = asyncHandler(async (req, res) => {
         },
       },
       'Pending deposit requests retrieved successfully'
+    )
+  );
+});
+
+// @desc   Superadmin: list wallet transactions (paginated)
+// @route  GET /api/v1/dashboard/superadmin/wallet/transactions?page=1&size=20&search=&type=&status=&company_id=
+// @access Private (superadmin)
+exports.getCompanyWalletTransactions = asyncHandler(async (req, res) => {
+  const page = toInt(req.query?.page, 1);
+  const size = Math.min(toInt(req.query?.size, 20), 100);
+  const search = (req.query?.search || '').trim();
+
+  const type = req.query?.type ? String(req.query.type).trim() : null;
+  const status = req.query?.status ? String(req.query.status).trim() : null;
+  const companyId = toMaybePositiveInt(req.query?.company_id);
+
+  const offset = (page - 1) * size;
+
+  const where = {};
+  if (type) where.type = type;
+  if (status) where.status = status;
+  if (companyId) where.company_id = companyId;
+
+  const companyWhere = {};
+  if (search) {
+    companyWhere[Op.or] = [
+      { name: { [Op.iLike]: `%${search}%` } },
+      { email: { [Op.iLike]: `%${search}%` } },
+    ];
+  }
+
+  const result = await CompanyWalletTransaction.findAndCountAll({
+    where,
+    include: [
+      {
+        model: Company,
+        as: 'company',
+        attributes: ['id', 'name', 'email'],
+        where: Object.keys(companyWhere).length ? companyWhere : undefined,
+        required: !!search,
+      },
+      {
+        model: User,
+        as: 'createdBy',
+        attributes: ['id', 'name', 'username', 'email'],
+        required: false,
+      },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: size,
+    offset,
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        items: result.rows.map(normalizeTx),
+        pagination: {
+          page,
+          size,
+          totalItems: result.count,
+          totalPages: Math.ceil(result.count / size),
+        },
+      },
+      'Wallet transactions retrieved successfully'
+    )
+  );
+});
+
+// @desc   Superadmin: list user-related wallet transactions (paginated)
+// @route  GET /api/v1/dashboard/superadmin/user-wallet/transactions?page=1&size=20&search=&user_id=
+// @access Private (superadmin)
+exports.getUserWalletTransactions = asyncHandler(async (req, res) => {
+  const page = toInt(req.query?.page, 1);
+  const size = Math.min(toInt(req.query?.size, 20), 100);
+  const search = (req.query?.search || '').trim();
+  const userId = toMaybePositiveInt(req.query?.user_id);
+
+  const offset = (page - 1) * size;
+
+  // Transactions that mention employee #<id> in description.
+  const where = {
+    description: { [Op.iLike]: '%employee%#%' },
+  };
+
+  const result = await CompanyWalletTransaction.findAndCountAll({
+    where,
+    include: [
+      { model: Company, as: 'company', attributes: ['id', 'name', 'email'], required: false },
+      { model: User, as: 'createdBy', attributes: ['id', 'name', 'username', 'email'], required: false },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: size,
+    offset,
+  });
+
+  const employeeIds = Array.from(
+    new Set(result.rows.map((t) => extractEmployeeId(t.description)).filter(Boolean))
+  );
+
+  const employeeWhere = { id: employeeIds };
+  if (userId) {
+    employeeWhere.id = [userId];
+  }
+
+  let employees = [];
+  if (employeeIds.length > 0) {
+    employees = await User.findAll({
+      where: employeeWhere,
+      attributes: ['id', 'name', 'email'],
+    });
+  }
+
+  const employeeById = new Map();
+  for (const e of employees) employeeById.set(e.id, e);
+
+  const filteredRows = userId
+    ? result.rows.filter((t) => extractEmployeeId(t.description) === userId)
+    : result.rows;
+
+  const items = filteredRows
+    .map((t) => {
+      const normalized = normalizeTx(t);
+      const employeeId = extractEmployeeId(t.description);
+      if (!employeeId) return normalized;
+      const employee = employeeById.get(employeeId);
+
+      return {
+        ...normalized,
+        employee: employee ? { id: employee.id, name: employee.name, email: employee.email } : { id: employeeId },
+        description:
+          employee?.name
+            ? `Energy points granted to ${employee.name} (#${employeeId})`
+            : normalized.description,
+      };
+    })
+    .filter(Boolean);
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        items,
+        pagination: {
+          page,
+          size,
+          totalItems: userId ? items.length : result.count,
+          totalPages: userId ? Math.max(1, Math.ceil(items.length / size)) : Math.ceil(result.count / size),
+        },
+      },
+      'User wallet transactions retrieved successfully'
     )
   );
 });

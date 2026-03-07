@@ -7,10 +7,18 @@ const { getMerchantDashboard, getMerchantWallet, getSuperadminDashboard, getMerc
 const { getCompanyWallet, depositCompanyWallet } = require('../controllers/companyWallet.controller');
 const { getEnergyConversion, updateEnergyConversion } = require('../controllers/energyConversion.controller');
 const {
+	listEnergyEarningPolicies,
+	createEnergyEarningPolicy,
+	updateEnergyEarningPolicy,
+} = require('../controllers/energyEarningPolicy.controller');
+const { getMerchantEnergyEarningSettings } = require('../controllers/merchantEnergySettings.controller');
+const {
 	getSuperadminWalletOverview,
 	getPendingCompanyWalletDeposits,
 	approveCompanyWalletDeposit,
 	rejectCompanyWalletDeposit,
+	getCompanyWalletTransactions,
+	getUserWalletTransactions,
 } = require('../controllers/superadminWallet.controller');
 
 // Merchant dashboard (scoped to token)
@@ -25,6 +33,11 @@ router.get('/superadmin', auth, authorize('superadmin'), getSuperadminDashboard)
 // Superadmin energy conversion setting (SAR -> energy points)
 router.get('/superadmin/energy-conversion', auth, authorize('superadmin'), getEnergyConversion);
 router.put('/superadmin/energy-conversion', auth, authorize('superadmin'), updateEnergyConversion);
+
+// Superadmin energy earning policies (percentages per activity)
+router.get('/superadmin/energy-earning-policies', auth, authorize('superadmin'), listEnergyEarningPolicies);
+router.post('/superadmin/energy-earning-policies', auth, authorize('superadmin'), createEnergyEarningPolicy);
+router.put('/superadmin/energy-earning-policies/:id', auth, authorize('superadmin'), updateEnergyEarningPolicy);
 
 // Company can read the current energy conversion (read-only)
 router.get('/company/energy-conversion', auth, authorize('companyadmin', 'superadmin'), getEnergyConversion);
@@ -52,8 +65,17 @@ router.patch(
 	rejectCompanyWalletDeposit
 );
 
+// Superadmin: wallet transactions (paginated)
+router.get('/superadmin/wallet/transactions', auth, authorize('superadmin'), getCompanyWalletTransactions);
+
+// Superadmin: user wallet transactions (paginated)
+router.get('/superadmin/user-wallet/transactions', auth, authorize('superadmin'), getUserWalletTransactions);
+
 // Merchant wallet (derived from bookings revenue)
 router.get('/merchant/wallet', auth, authorize('merchant'), getMerchantWallet);
+
+// Merchant can read their current conversion + admin-assigned policy (read-only)
+router.get('/merchant/energy-earning-settings', auth, authorize('merchant'), getMerchantEnergyEarningSettings);
 
 // Company wallet (stored balance + transactions)
 router.get('/company/wallet', auth, authorize('companyadmin'), getCompanyWallet);

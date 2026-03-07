@@ -4,6 +4,12 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { Op, Sequelize } = require('sequelize');
 
+const {
+  getPointsPerSar,
+  computeEarnedPoints,
+  getMerchantPolicy,
+} = require('../services/energyEarning.service');
+
 const toDateOnlyString = (date) => {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return null;
@@ -185,14 +191,9 @@ exports.createPlan = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'duration must be a positive integer (days)');
   }
 
-  const giftRaw = gift_energy_points;
-  const parsedGiftEnergyPoints =
-    giftRaw === undefined || giftRaw === null || String(giftRaw).trim() === ''
-      ? 0
-      : Number(giftRaw);
-  if (!Number.isFinite(parsedGiftEnergyPoints) || parsedGiftEnergyPoints < 0 || !Number.isInteger(parsedGiftEnergyPoints)) {
-    throw new ApiError(400, 'gift_energy_points must be a non-negative integer');
-  }
+    // Merchants are not allowed to control gifted energy points.
+    // Energy points are earned based on superadmin-configured percentages.
+    const parsedGiftEnergyPoints = 0;
 
   const normalizedPolicyRaw =
     voucher_policy === undefined || voucher_policy === null || String(voucher_policy).trim() === ''

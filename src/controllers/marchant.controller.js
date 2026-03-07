@@ -1,4 +1,4 @@
-const { Merchant, User } = require('../models');
+const { Merchant, User, EnergyEarningPolicy } = require('../models');
 const { Op } = require('sequelize');
 const { validationResult } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -21,6 +21,7 @@ const createMerchant = asyncHandler(async (req, res) => {
     }
 
     const { name, email, password, confirm_password, phone, address, user_id } = req.body;
+    const policyIdRaw = req.body?.energy_earning_policy_id ?? req.body?.energyPolicyId;
 
     if (password !== confirm_password) {
         throw new ApiError(400, 'Password and confirm password must match');
@@ -31,13 +32,31 @@ const createMerchant = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Merchant email already exists');
     }
 
+    let policyId = null;
+    if (policyIdRaw !== undefined && policyIdRaw !== null && String(policyIdRaw).trim() !== '') {
+        policyId = Number(policyIdRaw);
+        if (!Number.isInteger(policyId) || policyId <= 0) {
+            throw new ApiError(400, 'energy_earning_policy_id must be a positive integer');
+        }
+    } else {
+        const defaultPolicy = await EnergyEarningPolicy.findOne({ where: { is_active: true }, order: [['id', 'ASC']] });
+        if (!defaultPolicy) throw new ApiError(500, 'No active energy earning policy is configured');
+        policyId = defaultPolicy.id;
+    }
+
+    const policy = await EnergyEarningPolicy.findByPk(policyId);
+    if (!policy || !policy.is_active) {
+        throw new ApiError(400, 'Selected energy earning policy is not available');
+    }
+
     const merchant = await Merchant.create({ 
         name, 
         email, 
         password, 
         phone, 
         address,
-        user_id 
+        user_id,
+        energy_earning_policy_id: policyId,
     });
 
     res.status(201).json(new ApiResponse(201, { merchant: sanitizeMerchant(merchant) }, 'Merchant created successfully'));
@@ -67,7 +86,10 @@ const getAllMerchants = asyncHandler(async (req, res) => {
         limit,
         offset,
         order: [['id', 'DESC']],
-        include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }],
+        include: [
+            { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+            { model: EnergyEarningPolicy, as: 'energyPolicy', attributes: ['id', 'name'] },
+        ],
         attributes: { exclude: ['password'] }
     });
 
@@ -83,7 +105,10 @@ const getMerchantById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const merchant = await Merchant.findByPk(id, {
-        include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }],
+        include: [
+            { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+            { model: EnergyEarningPolicy, as: 'energyPolicy', attributes: ['id', 'name'] },
+        ],
         attributes: { exclude: ['password'] }
     });
 
@@ -103,6 +128,7 @@ const updateMerchant = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
     const { name, phone, address, user_id } = req.body;
+    const policyIdRaw = req.body?.energy_earning_policy_id ?? req.body?.energyPolicyId;
 
     const merchant = await Merchant.findByPk(id);
     if (!merchant) throw new ApiError(404, 'Merchant not found');
@@ -111,7 +137,26 @@ const updateMerchant = asyncHandler(async (req, res) => {
         throw new ApiError(403, 'Not authorized to update this merchant');
     }
 
+    if (policyIdRaw !== undefined && req.user.role !== 'superadmin') {
+        throw new ApiError(403, 'Only superadmin can change energy earning policy');
+    }
+
+    let energy_earning_policy_id = undefined;
+    if (policyIdRaw !== undefined) {
+        const policyId = Number(policyIdRaw);
+        if (!Number.isInteger(policyId) || policyId <= 0) {
+            throw new ApiError(400, 'energy_earning_policy_id must be a positive integer');
+        }
+
+        const policy = await EnergyEarningPolicy.findByPk(policyId);
+        if (!policy || !policy.is_active) {
+            throw new ApiError(400, 'Selected energy earning policy is not available');
+        }
+        energy_earning_policy_id = policyId;
+    }
+
     const updateData = { name, phone, address, user_id };
+    if (energy_earning_policy_id !== undefined) updateData.energy_earning_policy_id = energy_earning_policy_id;
     await merchant.update(updateData);
 
     res.status(200).json(new ApiResponse(200, { merchant: sanitizeMerchant(merchant) }, 'Merchant updated successfully'));

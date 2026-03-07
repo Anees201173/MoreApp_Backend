@@ -4,6 +4,12 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 
+const {
+  getPointsPerSar,
+  computeEarnedPoints,
+  getMerchantPolicy,
+} = require('../services/energyEarning.service');
+
 const isMissingTableError = (err, tableName) => {
   const msg = String(err?.original?.message || err?.message || '');
   const code = err?.original?.code;
@@ -176,7 +182,7 @@ exports.createBooking = asyncHandler(async (req, res) => {
       finalPrice = (Number(field.price_per_hour) * hours).toFixed(2);
     }
 
-    return FieldBooking.create(
+    const created = await FieldBooking.create(
       {
         field_id,
         user_id: userId,
@@ -187,6 +193,32 @@ exports.createBooking = asyncHandler(async (req, res) => {
       },
       { transaction: t }
     );
+
+    // Award energy points once on creation (default status is confirmed)
+    const awardStatuses = new Set(['confirmed', 'completed']);
+    if (awardStatuses.has(created.status) && !created.energy_points_awarded_at) {
+      const policy = await getMerchantPolicy(field.merchant_id, t);
+      const pointsPerSar = await getPointsPerSar(t);
+      const earned = computeEarnedPoints({
+        amountSar: created.total_price,
+        pointsPerSar,
+        percent: policy.percent_field_booking,
+      });
+
+      if (earned > 0) {
+        await User.increment('energy_points_balance', {
+          by: earned,
+          where: { id: created.user_id },
+          transaction: t,
+        });
+      }
+
+      created.earned_energy_points = earned;
+      created.energy_points_awarded_at = new Date();
+      await created.save({ transaction: t });
+    }
+
+    return created;
   });
 
   res.status(201).json(new ApiResponse(201, { booking }, 'Booking created successfully'));
@@ -208,14 +240,41 @@ exports.updateBookingStatus = asyncHandler(async (req, res) => {
     const booking = await FieldBooking.findByPk(bookingId, { transaction: t, lock: t.LOCK.UPDATE });
     if (!booking) throw new ApiError(404, 'Booking not found');
 
-    await ensureMerchantOwnsField(req, booking.field_id, t);
+    const { field } = await ensureMerchantOwnsField(req, booking.field_id, t);
 
     // Basic transition guard: don't change a cancelled booking to completed
     if (booking.status === 'cancelled' && status !== 'cancelled') {
       throw new ApiError(400, 'Cancelled bookings cannot be updated');
     }
 
+    const prevStatus = booking.status;
     booking.status = status;
+
+    const awardStatuses = new Set(['confirmed', 'completed']);
+    const wasEligible = awardStatuses.has(prevStatus);
+    const isEligible = awardStatuses.has(status);
+
+    if (isEligible && !wasEligible && !booking.energy_points_awarded_at) {
+      const policy = await getMerchantPolicy(field.merchant_id, t);
+      const pointsPerSar = await getPointsPerSar(t);
+      const earned = computeEarnedPoints({
+        amountSar: booking.total_price,
+        pointsPerSar,
+        percent: policy.percent_field_booking,
+      });
+
+      if (earned > 0) {
+        await User.increment('energy_points_balance', {
+          by: earned,
+          where: { id: booking.user_id },
+          transaction: t,
+        });
+      }
+
+      booking.earned_energy_points = earned;
+      booking.energy_points_awarded_at = new Date();
+    }
+
     await booking.save({ transaction: t });
     return booking;
   });
